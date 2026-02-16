@@ -40,3 +40,17 @@ void ConfiguratorModel::setCurrent(const std::string &path, const std::string &d
     else
         R_LOG(1, "Can not write file ./configs/" + path + ".json");
 }
+
+void ConfiguratorModel::registerConfig(const std::string &path, d3156::Config &c)
+{
+    configsPaths_.push_back(path);
+    try {
+        std::ostringstream oss;
+        d3156::pt::ptree ptree;
+        c.addSkeleton(ptree);
+        boost::property_tree::write_json(oss, ptree); // false = без pretty print
+        shemes[path] = oss.str();
+    } catch (const std::exception &e) {
+        R_LOG(1, "Error serializing JSON " << e.what() << " on register config: " << path);
+    }
+}

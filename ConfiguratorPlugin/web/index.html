@@ -344,7 +344,7 @@
 
         // === END AUTHORIZATION LOGIC ===
 
-        function parseType(typeStr) { if (typeStr.includes('|')) return { kind: "enum", values: typeStr.split('|') }; if (typeStr === "bool") return { kind: "bool" }; if (typeStr.includes("unsigned")) return { kind: "uint" }; if (typeStr.includes("int")) return { kind: "int" }; return { kind: "string" }; }
+        function parseType(typeStr) { if (typeStr.includes('|')) return { kind: "enum", values: typeStr.split('|') }; if (typeStr === "bool") return { kind: "bool" }; if (typeStr.includes("uint")) return { kind: "uint" }; if (typeStr.includes("int")) return { kind: "int" }; return { kind: "string" }; }
 
         function validateValue(type, value) {
             if (type.kind === "string") return null;

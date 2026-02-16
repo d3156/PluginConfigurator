@@ -1,4 +1,5 @@
 #pragma once
+#include "BaseConfig.hpp"
 #include <PluginCore/IModel>
 #include <string>
 #include <unordered_map>
@@ -15,6 +16,7 @@ public:
     int deleteOrder() override { return 0; }
     void init() override;
     void postInit() override;
+    void registerConfig(const std::string &name, d3156::Config &conf);
 
     void setCurrent(const std::string &path, const std::string &data);
     std::string getCurrent(const std::string &path);

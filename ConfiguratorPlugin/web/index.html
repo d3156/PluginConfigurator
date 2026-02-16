@@ -13,6 +13,7 @@
     <script src="https://unpkg.com/prismjs/components/prism-json.min.js"></script>
 
     <style>
+        /* стиль полностью как в вашем index.html */
         :root {
             --bg0: #0b0f17;
             --bg1: #0f172a;
@@ -288,18 +289,62 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
+        // === AUTHORIZATION LOGIC ===
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function generateTOTP(secretHex, counter) {
+            const secret = Uint8Array.from(secretHex.match(/.{2}/g).map(h => parseInt(h, 16)));
+            const counterBuffer = new ArrayBuffer(8);
+            const view = new DataView(counterBuffer);
+            view.setBigUint64(0, BigInt(counter));
+            const key = await crypto.subtle.importKey(
+                "raw",
+                secret,
+                { name: "HMAC", hash: "SHA-1" },
+                false,
+                ["sign"]
+            );
+            const sig = await crypto.subtle.sign("HMAC", key, counterBuffer);
+            const hmac = new Uint8Array(sig);
+            const offset = hmac[hmac.length - 1] & 0x0f;
+            const binary =
+                ((hmac[offset] & 0x7f) << 24) |
+                ((hmac[offset + 1] & 0xff) << 16) |
+                ((hmac[offset + 2] & 0xff) << 8) |
+                (hmac[offset + 3] & 0xff);
+            const otp = (binary % 1000000).toString().padStart(6, '0');
+            return otp;
+        }
+
+        async function refreshAuth() {
+            const username = localStorage.getItem('username');
+            const secret = localStorage.getItem('totp_secret');
+            if (!username || !secret) return;
+            const salt = Math.random().toString(36).slice(2, 12);
+            const timestep = 15;
+            const counter = Math.floor(Date.now() / 1000 / timestep);
+            const totp = await generateTOTP(secret, counter);
+            const hash = await sha256(username + totp + salt);
+            localStorage.setItem('auth', `${hash}?${salt}`);
+        }
+
         async function api(url, options = {}) {
+            const headers = options.headers || {};
+            const auth = localStorage.getItem('auth');
+            if (auth) headers['Authorization'] = auth;
+            options.headers = headers;
             const res = await fetch(url, options);
             return res.json();
         }
 
-        function parseType(typeStr) {
-            if (typeStr.includes('|')) return { kind: "enum", values: typeStr.split('|') };
-            if (typeStr === "bool") return { kind: "bool" };
-            if (typeStr.includes("unsigned")) return { kind: "uint" };
-            if (typeStr.includes("int")) return { kind: "int" };
-            return { kind: "string" };
-        }
+        // === END AUTHORIZATION LOGIC ===
+
+        function parseType(typeStr) { if (typeStr.includes('|')) return { kind: "enum", values: typeStr.split('|') }; if (typeStr === "bool") return { kind: "bool" }; if (typeStr.includes("unsigned")) return { kind: "uint" }; if (typeStr.includes("int")) return { kind: "int" }; return { kind: "string" }; }
 
         function validateValue(type, value) {
             if (type.kind === "string") return null;
@@ -450,7 +495,7 @@
             }
 
             async function save() {
-                await fetch(`/config/${selected}/current`, {
+                await api(`/config/${selected}/current`, {
                     method: "POST",
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -459,7 +504,7 @@
             }
 
             async function reload() {
-                await fetch('/reload', { method: "POST" });
+                await api('/reload', { method: "POST" });
                 alert("Reload triggered");
             }
 

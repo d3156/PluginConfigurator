@@ -2,7 +2,12 @@
 
 extern "C" {
 
-const std::string_view embedded_html_page =
+__attribute__((visibility("default")))
+const char* embedded_html_page =
 "@PAGE_HTML@";
+
+__attribute__((visibility("default")))
+const char* embedded_login_page =
+"@LOGIN_HTML@";
 
 }

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Login - PluginCore Config Manager</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        :root {
+            --bg0: #0b0f17;
+            --bg1: #0f172a;
+            --txt: #e7ecff;
+            --acc: #8b5cf6;
+            --r: 16px;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: sans-serif;
+            color: var(--txt);
+            background: linear-gradient(180deg, var(--bg0), var(--bg1));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card {
+            background: rgba(16, 26, 51, .75);
+            padding: 40px;
+            border-radius: var(--r);
+            width: 350px;
+        }
+
+        input {
+            width: 100%;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #243154;
+            background: rgba(16, 26, 51, .6);
+            color: var(--txt);
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 999px;
+            border: none;
+            background: var(--acc);
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .error {
+            color: #ef4444;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function hexToBytes(hex) {
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < bytes.length; i++)
+                bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+            return bytes;
+        }
+
+        async function generateTOTP(secretHex, counter) {
+            const keyBytes = hexToBytes(secretHex);
+            const counterBuffer = new ArrayBuffer(8);
+            const view = new DataView(counterBuffer);
+            view.setBigUint64(0, BigInt(counter), false);
+            const cryptoKey = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
+            const signature = await crypto.subtle.sign("HMAC", cryptoKey, counterBuffer);
+            const hmac = new Uint8Array(signature);
+            const offset = hmac[hmac.length - 1] & 0x0F;
+            const binary = ((hmac[offset] & 0x7F) << 24) | ((hmac[offset + 1] & 0xFF) << 16) | ((hmac[offset + 2] & 0xFF) << 8) | (hmac[offset + 3] & 0xFF);
+            return (binary % 1000000).toString().padStart(6, "0");
+        }
+
+        async function makeAuth(username, secretHex) {
+            const salt = Math.random().toString(36).slice(2, 12);
+            const timestep = 15;
+            const counter = Math.floor(Date.now() / 1000 / timestep);
+            const totp = await generateTOTP(secretHex, counter);
+            const msg = username + totp + salt;
+            const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(msg));
+            const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join('');
+            return `${hashHex}?${salt}`;
+        }
+
+
+        function Login() {
+            const [username, setUsername] = useState('');
+            const [secret, setSecret] = useState('');
+            const [error, setError] = useState('');
+            async function handleLogin(inputUser, inputSecret) {
+                try {
+                    if (!username || !secret) return;
+                    const authHeader = await makeAuth(username, secret);
+                    const res = await fetch('/index.html', { headers: { 'Authorization': authHeader } });
+                    const html = await res.text();
+                    if (!html.includes('PluginCore Config Manager')) throw new Error("Не удалось загрузить index.html");
+                    localStorage.setItem('auth', authHeader);
+                    localStorage.setItem('username', username);
+                    localStorage.setItem('totp_secret', secret);
+                    document.open();
+                    document.write(html);
+                    document.close();
+                } catch (e) {
+                    console.error(e);
+                    setError("Ошибка генерации TOTP или SHA256" + e);
+                }
+            }
+
+            return (
+                <div className="card">
+                    <h2>PluginCore Login</h2>
+                    {error && <div className="error">{error}</div>}
+                    <input placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
+                    <input placeholder="TOTP Secret (hex)" value={secret} onChange={e => setSecret(e.target.value)} />
+                    <button onClick={handleLogin}>Login</button>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<Login />);
+    </script>
+</body>
+
+</html>

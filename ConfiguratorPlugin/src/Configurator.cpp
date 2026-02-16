@@ -1,9 +1,11 @@
 #include "Configurator.hpp"
+#include <PluginCore/Logger/Log>
 #include <linux/prctl.h>
 #include <string>
 #include <sys/prctl.h>
 
-extern const std::string_view embedded_html_page;
+extern const char *embedded_html_page;
+extern const char *embedded_login_page;
 
 void Configurator::registerArgs(d3156::Args::Builder &bldr)
 {
@@ -29,8 +31,10 @@ void Configurator::runIO()
 {
     prctl(PR_SET_NAME, "ConfiguratorPlugin", 0, 0, 0);
     server = std::make_unique<d3156::EasyWebServer>(io, port);
-    G_LOG(0, "Paranoia server started at http://0.0.0.0:" << port);
+    G_LOG(0, "Configurator server started at http://0.0.0.0:" << port << "/index.html");
     server->addPath("/reload", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
+        server->setContentType("text/html; charset=utf-8");
+        if (!auth.check(req)) return {true, std::string(embedded_login_page)};
         server->setContentType("text/plain; charset=utf-8");
         raise(SIGINT);
         return {true, "OK"};
@@ -38,6 +42,8 @@ void Configurator::runIO()
     for (auto &conf : model->configsPaths()) {
         server->addPath("/config/" + conf + "current",
                         [this, conf](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
+                            server->setContentType("text/html; charset=utf-8");
+                            if (!auth.check(req)) return {true, std::string(embedded_login_page)};
                             if (req.method() == d3156::http::verb::post) {
                                 model->setCurrent(conf, req.body());
                                 server->setContentType("text/plain; charset=utf-8");
@@ -48,17 +54,21 @@ void Configurator::runIO()
                         });
         server->addPath("/config/" + conf + "sheme",
                         [this, conf](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
+                            server->setContentType("text/html; charset=utf-8");
+                            if (!auth.check(req)) return {true, std::string(embedded_login_page)};
                             server->setContentType("application/json; charset=utf-8");
                             return {true, model->getSheme(conf)};
                         });
     }
     server->addPath("/configs", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
+        server->setContentType("text/html; charset=utf-8");
+        if (!auth.check(req)) return {true, std::string(embedded_login_page)};
         server->setContentType("application/json; charset=utf-8");
         return {true, this->model->configsString()};
     });
-    server->addPath("index.html", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
+    server->addPath("/index.html", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
         server->setContentType("text/html; charset=utf-8");
-        return {true, std::string(embedded_html_page)};
+        return {true, std::string(auth.check(req) ? embedded_html_page : embedded_login_page)};
     });
     io.run();
     G_LOG(1, "Io-context canceled");

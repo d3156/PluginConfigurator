@@ -10,6 +10,11 @@ string(REPLACE "\\" "\\\\" PAGE_HTML "${PAGE_HTML}")
 string(REPLACE "\"" "\\\"" PAGE_HTML "${PAGE_HTML}")
 string(REPLACE "\n" "\\n\"\n\"" PAGE_HTML "${PAGE_HTML}")
 
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/web/login.html LOGIN_HTML)
+string(REPLACE "\\" "\\\\" LOGIN_HTML "${LOGIN_HTML}")
+string(REPLACE "\"" "\\\"" LOGIN_HTML "${LOGIN_HTML}")
+string(REPLACE "\n" "\\n\"\n\"" LOGIN_HTML "${LOGIN_HTML}")
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/web/embedded_page.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/embedded_page.cpp @ONLY)
 target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/embedded_page.cpp)
 

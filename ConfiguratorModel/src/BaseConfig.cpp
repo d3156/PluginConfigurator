@@ -20,7 +20,7 @@ namespace d3156
         }
         pt::ptree obj;
         for (IConfig *i : childs) i->save(obj);
-        ptree.put(name, obj);
+        ptree.add_child(name, obj);
     }
 
     void Config::addSkeleton(pt::ptree &ptree) const
@@ -31,6 +31,6 @@ namespace d3156
         }
         pt::ptree obj{};
         for (IConfig *i : childs) i->addSkeleton(obj);
-        ptree.put(name, obj);
+        ptree.add_child(name, obj);
     }
 }

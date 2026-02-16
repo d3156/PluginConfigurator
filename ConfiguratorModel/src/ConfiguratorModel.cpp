@@ -1,5 +1,6 @@
 #include "ConfiguratorModel.hpp"
 #include <PluginCore/Logger/Log>
+#include <boost/property_tree/json_parser.hpp>
 #include <filesystem>
 #include <string>
 #include <fstream>
@@ -16,7 +17,7 @@ std::string ConfiguratorModel::configsString()
 {
     std::string paths = "";
     for (int i = 0; i < configsPaths_.size(); i++) {
-        paths += configsPaths_[i];
+        paths += "\"" + configsPaths_[i] +  "\"";
         if (i != configsPaths_.size() - 1) paths += ",";
     }
     return "[" + paths + "]";
@@ -45,11 +46,27 @@ void ConfiguratorModel::registerConfig(const std::string &path, d3156::Config &c
 {
     configsPaths_.push_back(path);
     try {
+        const auto fullpath = "./configs/" + path + ".json";
+        if (!std::filesystem::exists(fullpath)) {
+            d3156::pt::ptree ptree;
+            c.save(ptree);
+            boost::property_tree::write_json(fullpath, ptree);
+        } else {
+            d3156::pt::ptree ptree;
+            boost::property_tree::read_json(fullpath, ptree);
+            c.load(ptree);
+        }
+    } catch (const std::exception &e) {
+        R_LOG(1, "Error parse JSON config " << e.what() << " on register file: " << path);
+    }
+    G_LOG(1, "Success parsed JSON config " << path);
+    try {
         std::ostringstream oss;
         d3156::pt::ptree ptree;
         c.addSkeleton(ptree);
         boost::property_tree::write_json(oss, ptree); // false = без pretty print
         shemes[path] = oss.str();
+        G_LOG(1, "Success added sceleton of JSON config " << path);
     } catch (const std::exception &e) {
         R_LOG(1, "Error serializing JSON " << e.what() << " on register config: " << path);
     }

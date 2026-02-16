@@ -40,7 +40,7 @@ void Configurator::runIO()
         return {true, "OK"};
     });
     for (auto &conf : model->configsPaths()) {
-        server->addPath("/config/" + conf + "current",
+        server->addPath("/config/" + conf + "/current",
                         [this, conf](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
                             server->setContentType("text/html; charset=utf-8");
                             if (!auth.check(req)) return {true, std::string(embedded_login_page)};
@@ -52,7 +52,7 @@ void Configurator::runIO()
                             server->setContentType("application/json; charset=utf-8");
                             return {true, model->getCurrent(conf)};
                         });
-        server->addPath("/config/" + conf + "sheme",
+        server->addPath("/config/" + conf + "/sheme",
                         [this, conf](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
                             server->setContentType("text/html; charset=utf-8");
                             if (!auth.check(req)) return {true, std::string(embedded_login_page)};

@@ -23,35 +23,31 @@ namespace d3156
 
     template <typename T> inline void ConfigArray<T>::addSkeleton(pt::ptree &ptree) const
     {
-        ptree.clear();
-        T obj;
+        ptree.erase(name);
         pt::ptree arr;
         pt::ptree node;
-        obj.addSkeleton(node);
+        node.put("", T{});
         arr.push_back(std::make_pair("", node));
-        ptree.put(name, arr);
+        ptree.add_child(name, arr);
     }
 
     template <typename T> inline void ConfigArray<T>::save(pt::ptree &ptree) const
     {
+        ptree.erase(name);
         pt::ptree arr;
-        for (const auto &obj : items) {
+        for (const auto &value : items) {
             pt::ptree node;
-            obj.save(node);
+            node.put("", value);
             arr.push_back(std::make_pair("", node));
         }
-        ptree.put(name, arr);
+        ptree.add_child(name, arr);
     }
 
     template <typename T> inline void ConfigArray<T>::load(const pt::ptree &ptree)
     {
         items.clear();
-
-        for (auto &node : ptree.get_child(name, pt::ptree{})) {
-            T obj;
-            obj.load(node.second);
-            items.push_back(std::move(obj));
-        }
+        if (auto child = ptree.get_child_optional(name))
+            for (const auto &node : *child) items.push_back(node.second.get_value<T>());
     }
 
     template <typename T> inline ConfigArray<T>::ConfigArray(std::string name_, Config *parent)

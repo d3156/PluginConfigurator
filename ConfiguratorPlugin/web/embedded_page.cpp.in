@@ -1,0 +1,8 @@
+#include <string_view>
+
+extern "C" {
+
+const std::string_view embedded_html_page =
+"@PAGE_HTML@";
+
+}

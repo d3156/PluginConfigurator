@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>PluginCore Config Manager</title>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://unpkg.com/prismjs/themes/prism-tomorrow.css" rel="stylesheet" />
+    <script src="https://unpkg.com/prismjs/prism.js"></script>
+    <script src="https://unpkg.com/prismjs/components/prism-json.min.js"></script>
+
+    <style>
+        :root {
+            --bg0: #0b0f17;
+            --bg1: #0f172a;
+            --card: #101a33cc;
+            --txt: #e7ecff;
+            --muted: #aab3d6;
+            --line: #243154;
+            --acc: #8b5cf6;
+            --r: 16px;
+            --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+            --w: 1200px;
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+            --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            font-family: var(--sans);
+            color: var(--txt);
+            background:
+                radial-gradient(1200px 700px at 20% 10%, #1b2b67 0%, transparent 55%),
+                radial-gradient(900px 600px at 90% 30%, #2b145b 0%, transparent 55%),
+                linear-gradient(180deg, var(--bg0), var(--bg1));
+        }
+
+        .wrap {
+            width: min(var(--w), calc(100vw - 32px));
+            margin: 0 auto;
+            padding: 24px 16px 60px;
+        }
+
+        .header {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 24px;
+        }
+
+        .title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .tabs-wrapper {
+            position: relative;
+        }
+
+        .tabs-container {
+            overflow-x: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(139, 92, 246, 0.5) transparent;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px;
+        }
+
+        .tabs-container::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .tabs-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .tabs-container::-webkit-scrollbar-thumb {
+            background-color: rgba(139, 92, 246, 0.5);
+            border-radius: 3px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+        }
+
+        .tab {
+            flex: 0 0 auto;
+            padding: 6px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            background: rgba(36, 49, 84, 0.8);
+            color: var(--txt);
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all .15s;
+        }
+
+        .tab:hover,
+        .tab:focus {
+            background: rgba(36, 49, 84, 1);
+            outline: none;
+            box-shadow: none;
+        }
+
+        .tab.active {
+            background: var(--acc);
+            color: white;
+        }
+
+        .tabs-shadow {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 40px;
+            height: 100%;
+            pointer-events: none;
+            background: linear-gradient(to right, transparent, var(--bg1));
+        }
+
+        .card {
+            border: 1px solid rgba(36, 49, 84, .8);
+            border-radius: var(--r);
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(16, 26, 51, .75), rgba(15, 26, 53, .55));
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(12px);
+            margin-bottom: 20px;
+        }
+
+        .field {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--muted);
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background: rgba(16, 26, 51, .6);
+            color: var(--txt);
+            font-size: 14px;
+            transition: all .12s ease;
+            -moz-appearance: textfield;
+            /* Firefox: убираем стрелки по умолчанию */
+        }
+
+        /* Включаем стрелки для Chrome, Edge, Safari */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: inner-spin-button;
+            margin: 0;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background: rgba(16, 26, 51, .6);
+            color: var(--txt);
+            font-size: 14px;
+            transition: all .12s ease;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--acc);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, .25);
+        }
+
+        textarea {
+            min-height: 70px;
+            resize: vertical;
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+            transform: scale(1.2);
+        }
+
+        .error {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, .2);
+        }
+
+        .error-text {
+            font-size: 12px;
+            margin-top: 4px;
+            color: #f87171;
+        }
+
+        .array-item {
+            border: 1px solid rgba(36, 49, 84, .6);
+            padding: 16px;
+            border-radius: var(--r);
+            margin-bottom: 14px;
+            background: rgba(15, 26, 53, .55);
+        }
+
+        button {
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: none;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all .15s ease;
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        button.primary {
+            background: var(--acc);
+            color: white;
+        }
+
+        button.primary:hover {
+            background: #7c3aed;
+        }
+
+        button.secondary {
+            background: rgba(36, 49, 84, .8);
+            color: var(--txt);
+        }
+
+        button.secondary:hover {
+            background: rgba(36, 49, 84, 1);
+        }
+
+        button.danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        button.danger:hover {
+            background: #dc2626;
+        }
+
+        pre {
+            font-family: var(--mono);
+            font-size: 13px;
+            padding: 0;
+            background: transparent;
+            margin: 0;
+        }
+
+        code {
+            display: block;
+            padding: 16px;
+            border-radius: var(--r);
+            overflow: auto;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        async function api(url, options = {}) {
+            const res = await fetch(url, options);
+            return res.json();
+        }
+
+        function parseType(typeStr) {
+            if (typeStr.includes('|')) return { kind: "enum", values: typeStr.split('|') };
+            if (typeStr === "bool") return { kind: "bool" };
+            if (typeStr.includes("unsigned")) return { kind: "uint" };
+            if (typeStr.includes("int")) return { kind: "int" };
+            return { kind: "string" };
+        }
+
+        function validateValue(type, value) {
+            if (type.kind === "string") return null;
+            if (type.kind === "bool") return typeof value === "boolean" ? null : "Must be boolean";
+            if (type.kind === "enum") { return type.values.some(v => v.toString() === value?.toString()) ? null : "Invalid enum value"; }
+            if (type.kind === "int" || type.kind === "uint") {
+                if (value === "") return "Required number";
+                if (!Number.isInteger(Number(value))) return "Must be integer";
+                if (type.kind === "uint" && Number(value) < 0) return "Must be unsigned";
+                if (type.kind === "int" && (Number(value) < -2147483648 || Number(value) > 2147483647)) return "Overflow 32-bit signed";
+                if (type.kind === "uint" && (Number(value) < 0 || Number(value) > 4294967295)) return "Overflow 32-bit unsigned";
+            }
+            return null;
+        }
+
+        function Field({ name, schema, value, onChange }) {
+            if (Array.isArray(schema)) return <ArrayField name={name} schema={schema[0]} value={value || []} onChange={onChange} />;
+            if (typeof schema === "object") return <ObjectField name={name} schema={schema} value={value || {}} onChange={onChange} />;
+            const type = parseType(schema);
+            const error = validateValue(type, value);
+
+            function handle(e) {
+                let v = e.target.value;
+                if (type.kind === "bool") v = e.target.checked;
+                if (type.kind === "int" || type.kind === "uint") v = v === "" ? "" : Number(v);
+                onChange(v);
+            }
+
+            return (
+                <div className="field">
+                    <label>{name}</label>
+                    {type.kind === "enum" &&
+                        <select value={value ?? type.values[0]} onChange={handle}>
+                            {type.values.map(v => <option key={v}>{v}</option>)}
+                        </select>
+                    }
+                    {type.kind === "bool" &&
+                        <input type="checkbox" checked={!!value} onChange={handle} />
+                    }
+                    {(type.kind === "int" || type.kind === "uint") &&
+                        <input
+                            type="number"
+                            value={value}
+                            onChange={handle}
+                            onKeyDown={(e) => {
+                                if (
+                                    !/[0-9]/.test(e.key) &&
+                                    !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "-", "."].includes(e.key)
+                                ) {
+                                    e.preventDefault();
+                                }
+                            }}
+                        />
+
+                    }
+                    {type.kind === "string" &&
+                        <textarea value={value || ""} onChange={handle} />
+                    }
+                    {error && <div className="error-text">{error}</div>}
+                </div>
+            );
+        }
+
+        function ObjectField({ name, schema, value, onChange }) {
+            return (
+                <div className="card">
+                    {name && <h4>{name}</h4>}
+                    {Object.keys(schema).map(key => (
+                        <Field key={key} name={key} schema={schema[key]} value={value[key]} onChange={(v) => { const copy = { ...value }; copy[key] = v; onChange(copy); }} />
+                    ))}
+                </div>
+            );
+        }
+
+        function ArrayField({ name, schema, value, onChange }) {
+            function add() { onChange([...value, {}]); }
+            function update(i, v) { const copy = [...value]; copy[i] = v; onChange(copy); }
+            function remove(i) { const copy = [...value]; copy.splice(i, 1); onChange(copy); }
+
+            return (
+                <div className="card">
+                    <h4>{name}</h4>
+                    {value.map((item, i) => (
+                        <div key={i} className="array-item">
+                            <Field name={i} schema={schema} value={item} onChange={(v) => update(i, v)} />
+                            <button className="danger" onClick={() => remove(i)}>Remove</button>
+                        </div>
+                    ))}
+                    <button className="secondary" onClick={add}>Add</button>
+                </div>
+            );
+        }
+
+        function JsonPreview({ data }) {
+            const ref = React.useRef(null);
+            useEffect(() => { if (ref.current) Prism.highlightElement(ref.current); }, [data]);
+            const json = JSON.stringify(data, null, 2);
+            return (
+                <pre className="card"><code ref={ref} className="language-json">{json}</code></pre>
+            );
+        }
+
+        function hasErrors(schema, data) {
+            for (const key in schema) {
+                const fieldSchema = schema[key];
+                const value = data[key];
+                if (Array.isArray(fieldSchema)) {
+                    for (const item of value || []) {
+                        if (typeof fieldSchema[0] === "object") {
+                            if (hasErrors(fieldSchema[0], item)) return true;
+                        } else if (validateValue(parseType(fieldSchema[0]), item)) return true;
+                    }
+                } else if (typeof fieldSchema === "object") {
+                    if (hasErrors(fieldSchema, value || {})) return true;
+                } else if (validateValue(parseType(fieldSchema), value)) return true;
+            }
+            return false;
+        }
+
+        function App() {
+            const [configs, setConfigs] = useState([]);
+            const [selected, setSelected] = useState(null);
+            const [schema, setSchema] = useState(null);
+            const [data, setData] = useState(null);
+
+            useEffect(() => { api('/configs').then(setConfigs); }, []);
+
+            useEffect(() => {
+                const container = document.querySelector('.tabs-container');
+                if (!container) return;
+                function wheelHandler(e) {
+                    if (e.deltaY !== 0) {
+                        e.preventDefault();
+                        container.scrollLeft += e.deltaY;
+                    }
+                }
+                container.addEventListener('wheel', wheelHandler, { passive: false });
+                return () => container.removeEventListener('wheel', wheelHandler);
+            }, [configs]);
+
+            async function load(name) {
+                if (!name) return;
+                setSelected(name);
+                const s = await api(`/config/${name}/sheme`);
+                const d = await api(`/config/${name}/current`);
+                setSchema(s);
+                setData(d);
+            }
+
+            async function save() {
+                await fetch(`/config/${selected}/current`, {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                alert("Saved");
+            }
+
+            async function reload() {
+                await fetch('/reload', { method: "POST" });
+                alert("Reload triggered");
+            }
+
+            const formHasErrors = schema && data ? hasErrors(schema, data) : true;
+
+            return (
+                <div className="wrap">
+                    <div className="header">
+                        <div className="title">PluginCore Config Manager</div>
+                        <div className="tabs-wrapper">
+                            <div className="tabs-container">
+                                <div className="tabs">
+                                    {configs.map(c => (
+                                        <div key={c} className={`tab ${selected === c ? "active" : ""}`} onClick={() => load(c)}> {c} </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="tabs-shadow"></div>
+                        </div>
+                    </div>
+
+                    {schema && data && <>
+                        <ObjectField schema={schema} value={data} onChange={setData} />
+                        <div className="card">
+                            <h4>JSON Preview</h4>
+                            <JsonPreview data={data} />
+                        </div>
+                        <div className="actions">
+                            <button className="primary" onClick={save} disabled={formHasErrors}>Save</button>
+                            <button className="danger" onClick={reload}>Reload</button>
+                        </div>
+                    </>}
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+
+</html>

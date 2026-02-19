@@ -1,548 +1,845 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 
 <head>
-    <meta charset="UTF-8" />
-    <title>PluginCore Config Manager</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PluginCore Config Manager</title>
+  <style>
+    :root {
+      --bg0: #0b0f17;
+      --bg1: #0f172a;
+      --card: #101a33cc;
+      --txt: #e7ecff;
+      --muted: #aab3d6;
+      --line: #243154;
+      --acc: #8b5cf6;
+      --r: 16px;
+      --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+      --w: 1600px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
 
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link href="https://unpkg.com/prismjs/themes/prism-tomorrow.css" rel="stylesheet" />
-    <script src="https://unpkg.com/prismjs/prism.js"></script>
-    <script src="https://unpkg.com/prismjs/components/prism-json.min.js"></script>
+    * { box-sizing: border-box; }
 
-    <style>
-        /* стиль полностью как в вашем index.html */
-        :root {
-            --bg0: #0b0f17;
-            --bg1: #0f172a;
-            --card: #101a33cc;
-            --txt: #e7ecff;
-            --muted: #aab3d6;
-            --line: #243154;
-            --acc: #8b5cf6;
-            --r: 16px;
-            --shadow: 0 10px 30px rgba(0, 0, 0, .35);
-            --w: 1200px;
-            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
-            --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-        }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--txt);
+      background:
+        radial-gradient(1200px 700px at 20% 10%, #1b2b67 0%, transparent 55%),
+        radial-gradient(900px 600px at 90% 30%, #2b145b 0%, transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+    }
 
-        * {
-            box-sizing: border-box;
-        }
+    .wrap {
+      width: min(var(--w), calc(100vw - 24px));
+      margin: 0 auto;
+      padding: 20px 12px 40px;
+    }
 
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-            font-family: var(--sans);
-            color: var(--txt);
-            background:
-                radial-gradient(1200px 700px at 20% 10%, #1b2b67 0%, transparent 55%),
-                radial-gradient(900px 600px at 90% 30%, #2b145b 0%, transparent 55%),
-                linear-gradient(180deg, var(--bg0), var(--bg1));
-        }
+    .header {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
 
-        .wrap {
-            width: min(var(--w), calc(100vw - 32px));
-            margin: 0 auto;
-            padding: 24px 16px 60px;
-        }
+    .title {
+      font-size: 22px;
+      font-weight: 800;
+    }
 
-        .header {
-            display: flex;
-            flex-direction: column;
-            margin-bottom: 24px;
-        }
+    .topbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
 
-        .title {
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 12px;
-        }
+    .tabs-container {
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(139, 92, 246, .5) transparent;
+    }
 
-        .tabs-wrapper {
-            position: relative;
-        }
+    .tabs {
+      display: flex;
+      gap: 8px;
+    }
 
-        .tabs-container {
-            overflow-x: auto;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(139, 92, 246, 0.5) transparent;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 4px;
-        }
+    .tab {
+      flex: 0 0 auto;
+      padding: 6px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      background: rgba(36, 49, 84, .8);
+      color: var(--txt);
+      font-weight: 700;
+      white-space: nowrap;
+    }
 
-        .tabs-container::-webkit-scrollbar {
-            height: 6px;
-        }
+    .tab.active {
+      background: var(--acc);
+      color: #fff;
+    }
 
-        .tabs-container::-webkit-scrollbar-track {
-            background: transparent;
-        }
+    .grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 1fr 1fr;
+      align-items: start;
+      width: 100%;
+    }
 
-        .tabs-container::-webkit-scrollbar-thumb {
-            background-color: rgba(139, 92, 246, 0.5);
-            border-radius: 3px;
-        }
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+    }
 
-        .tabs {
-            display: flex;
-            gap: 8px;
-        }
+    .card {
+      width: 100%;
+      border: 1px solid rgba(36, 49, 84, .8);
+      border-radius: var(--r);
+      padding: 12px;
+      background: linear-gradient(180deg, rgba(16, 26, 51, .75), rgba(15, 26, 53, .55));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      margin-bottom: 12px;
+    }
 
-        .tab {
-            flex: 0 0 auto;
-            padding: 6px 16px;
-            border-radius: 999px;
-            cursor: pointer;
-            background: rgba(36, 49, 84, 0.8);
-            color: var(--txt);
-            font-weight: 600;
-            white-space: nowrap;
-            transition: all .15s;
-        }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin: 0 0 6px;
+      color: var(--muted);
+    }
 
-        .tab:hover,
-        .tab:focus {
-            background: rgba(36, 49, 84, 1);
-            outline: none;
-            box-shadow: none;
-        }
+    input, select, textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(16, 26, 51, .6);
+      color: var(--txt);
+      font-size: 14px;
+    }
 
-        .tab.active {
-            background: var(--acc);
-            color: white;
-        }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--acc);
+      box-shadow: 0 0 0 2px rgba(139, 92, 246, .25);
+    }
 
-        .tabs-shadow {
-            position: absolute;
-            right: 0;
-            top: 0;
-            width: 40px;
-            height: 100%;
-            pointer-events: none;
-            background: linear-gradient(to right, transparent, var(--bg1));
-        }
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+      font-family: var(--mono);
+    }
 
-        .card {
-            border: 1px solid rgba(36, 49, 84, .8);
-            border-radius: var(--r);
-            padding: 20px;
-            background: linear-gradient(180deg, rgba(16, 26, 51, .75), rgba(15, 26, 53, .55));
-            box-shadow: var(--shadow);
-            backdrop-filter: blur(12px);
-            margin-bottom: 20px;
-        }
+    input[type="checkbox"] {
+      width: auto;
+      transform: scale(1.2);
+    }
 
-        .field {
-            margin-bottom: 16px;
-        }
+    input[type="number"] { -moz-appearance: textfield; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: inner-spin-button;
+      margin: 0;
+    }
 
-        label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 6px;
-            color: var(--muted);
-        }
+    .field { margin-bottom: 14px; }
 
-        input[type="number"] {
-            width: 100%;
-            padding: 8px 10px;
-            border-radius: 10px;
-            border: 1px solid var(--line);
-            background: rgba(16, 26, 51, .6);
-            color: var(--txt);
-            font-size: 14px;
-            transition: all .12s ease;
-            -moz-appearance: textfield;
-            /* Firefox: убираем стрелки по умолчанию */
-        }
+    .error {
+      border-color: #ef4444 !important;
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, .2);
+    }
 
-        /* Включаем стрелки для Chrome, Edge, Safari */
-        input[type="number"]::-webkit-inner-spin-button,
-        input[type="number"]::-webkit-outer-spin-button {
-            -webkit-appearance: inner-spin-button;
-            margin: 0;
-        }
+    .error-text {
+      font-size: 12px;
+      margin-top: 4px;
+      color: #f87171;
+      white-space: pre-wrap;
+    }
 
-        input,
-        select,
-        textarea {
-            width: 100%;
-            padding: 8px 10px;
-            border-radius: 10px;
-            border: 1px solid var(--line);
-            background: rgba(16, 26, 51, .6);
-            color: var(--txt);
-            font-size: 14px;
-            transition: all .12s ease;
-        }
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
 
-        input:focus,
-        select:focus,
-        textarea:focus {
-            outline: none;
-            border-color: var(--acc);
-            box-shadow: 0 0 0 2px rgba(139, 92, 246, .25);
-        }
+    button {
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 0;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all .15s ease;
+    }
 
-        textarea {
-            min-height: 70px;
-            resize: vertical;
-        }
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
 
-        input[type="checkbox"] {
-            width: auto;
-            transform: scale(1.2);
-        }
+    .primary { background: var(--acc); color: #fff; font-weight: 800; }
+    .secondary { background: rgba(36, 49, 84, .9); color: var(--txt); font-weight: 700; }
+    .danger { background: #ef4444; color: #fff; font-weight: 800; }
 
-        .error {
-            border-color: #ef4444 !important;
-            box-shadow: 0 0 0 2px rgba(239, 68, 68, .2);
-        }
+    .badge {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(36, 49, 84, .8);
+      color: var(--muted);
+    }
 
-        .error-text {
-            font-size: 12px;
-            margin-top: 4px;
-            color: #f87171;
-        }
+    .status-ok { color: #22c55e; border-color: rgba(34, 197, 94, .35); }
+    .status-bad { color: #ef4444; border-color: rgba(239, 68, 68, .35); }
 
-        .array-item {
-            border: 1px solid rgba(36, 49, 84, .6);
-            padding: 16px;
-            border-radius: var(--r);
-            margin-bottom: 14px;
-            background: rgba(15, 26, 53, .55);
-        }
+    .cm-host { min-height: 380px; }
 
-        button {
-            padding: 8px 14px;
-            border-radius: 999px;
-            border: none;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all .15s ease;
-        }
+    /* -------- CodeMirror 6: VSCode-like -------- */
 
-        button:disabled {
-            opacity: .5;
-            cursor: not-allowed;
-        }
+    .cm-editor {
+      background-color: #101a33;
+      color: #d4d4d4;
+      font-family: var(--mono), monospace;
+      font-size: 13px;
+      width: 100%;
+      border-radius: 12px;
+    }
 
-        button.primary {
-            background: var(--acc);
-            color: white;
-        }
+    .cm-editor .cm-scroller {
+      line-height: 1.5;
+      overflow: auto; /* безопасно: и вертикаль, и горизонталь по необходимости */
+    }
 
-        button.primary:hover {
-            background: #7c3aed;
-        }
+    /* Надёжный перенос, включая длинные токены/URL */
+    .cm-editor .cm-content {
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+    .cm-editor .cm-line { white-space: inherit; }
 
-        button.secondary {
-            background: rgba(36, 49, 84, .8);
-            color: var(--txt);
-        }
+    .cm-editor .cm-cursor,
+    .cm-editor .cm-dropCursor {
+      border-left: 2px solid #aeafad;
+    }
 
-        button.secondary:hover {
-            background: rgba(36, 49, 84, 1);
-        }
+    .cm-editor .cm-selectionBackground,
+    .cm-editor .cm-content ::selection {
+      background-color: #264f78;
+    }
 
-        button.danger {
-            background: #ef4444;
-            color: white;
-        }
+    .cm-editor .cm-activeLine {
+      background-color: rgba(40, 66, 104, 0.4);
+    }
 
-        button.danger:hover {
-            background: #dc2626;
-        }
+    .cm-editor .cm-gutters {
+      background-color: #0f172a;
+      color: #858585;
+      border: none;
+    }
 
-        pre {
-            font-family: var(--mono);
-            font-size: 13px;
-            padding: 0;
-            background: transparent;
-            margin: 0;
-        }
+    .cm-editor .cm-lineNumbers .cm-gutterElement { padding: 0 6px; }
+    .cm-editor .cm-activeLineGutter { background-color: #1f2937; }
 
-        code {
-            display: block;
-            padding: 16px;
-            border-radius: var(--r);
-            overflow: auto;
-        }
-
-        .actions {
-            display: flex;
-            gap: 12px;
-            margin-top: 10px;
-        }
-    </style>
+    /* JSON highlighting classes (твои реальные: ͼe/ͼd/ͼc) */
+    .cm-editor .ͼpropertyName { color: #9cdcfe; }
+    .cm-editor .ͼstring, .cm-editor .ͼe { color: #ce9178; }
+    .cm-editor .ͼnumber, .cm-editor .ͼd { color: #b5cea8; }
+    .cm-editor .ͼbool, .cm-editor .ͼnull, .cm-editor .ͼc { color: #b5cea8; }
+    .cm-editor .ͼpunctuation { color: #d4d4d4; }
+    .cm-editor .ͼcomment { color: #6a9955; font-style: italic; }
+  </style>
 </head>
 
 <body>
-    <div id="root"></div>
+  <div class="wrap">
+    <div class="header">
+      <div class="title">PluginCore Config Manager</div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+      <div class="topbar">
+        <span id="status" class="badge">Idle</span>
+      </div>
 
-        // === AUTHORIZATION LOGIC ===
-        async function sha256(message) {
-            const msgBuffer = new TextEncoder().encode(message);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      <div class="tabs-container">
+        <div id="tabs" class="tabs"></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="card" id="leftCard">
+          <div id="formRoot"></div>
+
+          <div class="row" style="margin-top:14px;">
+            <button id="btnSave" class="primary">Save</button>
+            <button id="btnReload" class="danger">Reload plugin</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="row" style="justify-content:space-between;">
+            <div style="font-weight:800;">JSON</div>
+            <div class="row">
+              <button id="btnFormat" class="secondary">Format</button>
+              <button id="btnCopy" class="secondary">Copy JSON</button>
+            </div>
+          </div>
+          <div id="cm" class="cm-host" style="margin-top:10px;"></div>
+          <span id="jsonErr" class="badge status-bad" style="display:none; margin-top:8px;">Invalid JSON</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const $ = (id) => document.getElementById(id);
+
+    const state = {
+      configs: [],
+      selected: null,
+      schema: null,
+      data: null,
+      cm: null,
+      cmApi: null,
+    };
+
+    // ---------- AUTH ----------
+    async function sha256Hex(message) {
+      const data = new TextEncoder().encode(message);
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    function hexToBytes(hex) {
+      const out = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+      return out;
+    }
+    async function generateTOTP(secretHex, counter) {
+      const keyBytes = hexToBytes(secretHex);
+      const counterBuf = new ArrayBuffer(8);
+      const view = new DataView(counterBuf);
+      view.setBigUint64(0, BigInt(counter), false);
+      const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
+      const sig = await crypto.subtle.sign("HMAC", key, counterBuf);
+      const hmac = new Uint8Array(sig);
+      const offset = hmac[hmac.length - 1] & 0x0f;
+      const binary = ((hmac[offset] & 0x7f) << 24) |
+        ((hmac[offset + 1] & 0xff) << 16) |
+        ((hmac[offset + 2] & 0xff) << 8) |
+        (hmac[offset + 3] & 0xff);
+      return (binary % 1000000).toString().padStart(6, '0');
+    }
+    async function makeAuthHeader() {
+      const username = localStorage.getItem('username');
+      const secret = localStorage.getItem('totp_secret');
+      if (!username || !secret) return null;
+      const salt = Math.random().toString(36).slice(2, 12);
+      const timestep = 15;
+      const counter = Math.floor(Date.now() / 1000 / timestep);
+      const totp = await generateTOTP(secret, counter);
+      const hash = await sha256Hex(username + totp + salt);
+      return `${hash}?${salt}`;
+    }
+
+    async function api(url, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      const auth = await makeAuthHeader();
+      if (auth) headers['Authorization'] = auth;
+      const res = await fetch(url, { ...options, headers });
+
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) return await res.json();
+      const text = await res.text();
+      if (text.includes('PluginCore Login')) window.location.href = '/index.html';
+      return text;
+    }
+
+    // ---------- UI helpers ----------
+    function setStatus(text, ok = null) {
+      const el = $('status');
+      el.textContent = text;
+      el.classList.remove('status-ok', 'status-bad');
+      if (ok === true) el.classList.add('status-ok');
+      if (ok === false) el.classList.add('status-bad');
+    }
+
+    function pretty(obj) {
+      return JSON.stringify(obj, null, 2);
+    }
+
+    function safeParseJson(text) {
+      try { return { ok: true, value: JSON.parse(text) }; }
+      catch (e) { return { ok: false, error: String(e && e.message ? e.message : e) }; }
+    }
+
+    // ---------- Schema helpers ----------
+    function parseType(typeStr) {
+      if (typeof typeStr !== 'string') return { kind: 'object' };
+      if (typeStr.includes('|')) return { kind: 'enum', values: typeStr.split('|') };
+      if (typeStr === 'bool') return { kind: 'bool' };
+      if (typeStr.includes('uint')) return { kind: 'uint' };
+      if (typeStr.includes('int')) return { kind: 'int' };
+      if (typeStr === 'string') return { kind: 'string' };
+      return { kind: 'string' };
+    }
+
+    function validateValue(type, value) {
+      if (type.kind === 'string') return null;
+      if (type.kind === 'bool') return (typeof value === 'boolean') ? null : 'Must be boolean';
+      if (type.kind === 'enum') return type.values.some(v => String(v) === String(value)) ? null : 'Invalid enum value';
+      if (type.kind === 'int' || type.kind === 'uint') {
+        if (value === '' || value === null || value === undefined) return 'Required number';
+        if (!Number.isInteger(Number(value))) return 'Must be integer';
+        const n = Number(value);
+        if (type.kind === 'uint' && n < 0) return 'Must be unsigned';
+        if (type.kind === 'int' && (n < -2147483648 || n > 2147483647)) return 'Overflow 32-bit signed';
+        if (type.kind === 'uint' && (n < 0 || n > 4294967295)) return 'Overflow 32-bit unsigned';
+        return null;
+      }
+      return null;
+    }
+
+    function isSchemaObject(x) {
+      return x && typeof x === 'object' && !Array.isArray(x);
+    }
+
+    function ensureDataDefaults(schema, data) {
+      if (!isSchemaObject(schema)) return data;
+      const out = (data && typeof data === 'object') ? structuredClone(data) : {};
+      for (const key of Object.keys(schema)) {
+        const s = schema[key];
+        if (Array.isArray(s)) {
+          if (!Array.isArray(out[key])) out[key] = [];
+        } else if (isSchemaObject(s)) {
+          out[key] = ensureDataDefaults(s, out[key]);
+        } else {
+          if (!(key in out)) {
+            const t = parseType(s);
+            if (t.kind === 'bool') out[key] = false;
+            else if (t.kind === 'int' || t.kind === 'uint') out[key] = 0;
+            else if (t.kind === 'enum') out[key] = t.values[0] ?? '';
+            else out[key] = '';
+          }
         }
+      }
+      return out;
+    }
 
-        async function generateTOTP(secretHex, counter) {
-            const secret = Uint8Array.from(secretHex.match(/.{2}/g).map(h => parseInt(h, 16)));
-            const counterBuffer = new ArrayBuffer(8);
-            const view = new DataView(counterBuffer);
-            view.setBigUint64(0, BigInt(counter));
-            const key = await crypto.subtle.importKey(
-                "raw",
-                secret,
-                { name: "HMAC", hash: "SHA-1" },
-                false,
-                ["sign"]
-            );
-            const sig = await crypto.subtle.sign("HMAC", key, counterBuffer);
-            const hmac = new Uint8Array(sig);
-            const offset = hmac[hmac.length - 1] & 0x0f;
-            const binary =
-                ((hmac[offset] & 0x7f) << 24) |
-                ((hmac[offset + 1] & 0xff) << 16) |
-                ((hmac[offset + 2] & 0xff) << 8) |
-                (hmac[offset + 3] & 0xff);
-            const otp = (binary % 1000000).toString().padStart(6, '0');
-            return otp;
-        }
+    // ---------- Forms ----------
+    function renderForms() {
+      const root = $('formRoot');
+      root.innerHTML = '';
+      if (!state.schema || !state.data) {
+        root.innerHTML = '<div class="badge">No config selected</div>';
+        return;
+      }
+      const tree = renderObjectFields(
+        state.schema,
+        state.data,
+        (newObj) => {
+          state.data = newObj;
+          syncJsonEditorFromState();
+        },
+        ''
+      );
+      root.appendChild(tree);
+    }
 
-        async function refreshAuth() {
-            const username = localStorage.getItem('username');
-            const secret = localStorage.getItem('totp_secret');
-            if (!username || !secret) return;
-            const salt = Math.random().toString(36).slice(2, 12);
-            const timestep = 15;
-            const counter = Math.floor(Date.now() / 1000 / timestep);
-            const totp = await generateTOTP(secret, counter);
-            const hash = await sha256(username + totp + salt);
-            localStorage.setItem('auth', `${hash}?${salt}`);
-        }
+    function renderObjectFields(schemaObj, dataObj, onChange, title) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      if (title) {
+        const h = document.createElement('div');
+        h.style.fontWeight = '800';
+        h.style.marginBottom = '10px';
+        h.textContent = title;
+        card.appendChild(h);
+      }
 
-        async function api(url, options = {}) {
-            const headers = options.headers || {};
-            const auth = localStorage.getItem('auth');
-            if (auth) headers['Authorization'] = auth;
-            options.headers = headers;
-            const res = await fetch(url, options);
-            return res.json();
-        }
+      for (const key of Object.keys(schemaObj)) {
+        const s = schemaObj[key];
+        const value = dataObj ? dataObj[key] : undefined;
 
-        // === END AUTHORIZATION LOGIC ===
+        if (Array.isArray(s)) {
+          const arrSchema = s[0];
+          const arr = Array.isArray(value) ? value : [];
 
-        function parseType(typeStr) { if (typeStr.includes('|')) return { kind: "enum", values: typeStr.split('|') }; if (typeStr === "bool") return { kind: "bool" }; if (typeStr.includes("uint")) return { kind: "uint" }; if (typeStr.includes("int")) return { kind: "int" }; return { kind: "string" }; }
+          const field = document.createElement('div');
+          field.className = 'field';
 
-        function validateValue(type, value) {
-            if (type.kind === "string") return null;
-            if (type.kind === "bool") return typeof value === "boolean" ? null : "Must be boolean";
-            if (type.kind === "enum") { return type.values.some(v => v.toString() === value?.toString()) ? null : "Invalid enum value"; }
-            if (type.kind === "int" || type.kind === "uint") {
-                if (value === "") return "Required number";
-                if (!Number.isInteger(Number(value))) return "Must be integer";
-                if (type.kind === "uint" && Number(value) < 0) return "Must be unsigned";
-                if (type.kind === "int" && (Number(value) < -2147483648 || Number(value) > 2147483647)) return "Overflow 32-bit signed";
-                if (type.kind === "uint" && (Number(value) < 0 || Number(value) > 4294967295)) return "Overflow 32-bit unsigned";
+          const label = document.createElement('label');
+          label.textContent = key;
+          field.appendChild(label);
+
+          const container = document.createElement('div');
+
+          arr.forEach((item, idx) => {
+            const box = document.createElement('div');
+            box.className = 'card';
+            box.style.background = 'rgba(15,26,53,.55)';
+
+            const updateAt = (idx, v) => {
+              const copy = structuredClone(dataObj);
+              const newArr = Array.isArray(copy[key]) ? copy[key].slice() : arr.slice();
+              newArr[idx] = v;
+              copy[key] = newArr;
+              onChange(copy);
+            };
+
+            if (isSchemaObject(arrSchema)) {
+              box.appendChild(
+                renderObjectFields(
+                  arrSchema,
+                  item || {},
+                  (v) => updateAt(idx, v),
+                  key + '[' + idx + ']'
+                )
+              );
+            } else {
+              const t = parseType(arrSchema);
+              const { node, errorNode, getValue } = makeScalarEditor(t, item, (v) => updateAt(idx, v));
+              box.appendChild(node);
+              box.appendChild(errorNode);
+              const err = validateValue(t, getValue());
+              setFieldError(node, errorNode, err);
             }
-            return null;
-        }
 
-        function Field({ name, schema, value, onChange }) {
-            if (Array.isArray(schema)) return <ArrayField name={name} schema={schema[0]} value={value || []} onChange={onChange} />;
-            if (typeof schema === "object") return <ObjectField name={name} schema={schema} value={value || {}} onChange={onChange} />;
-            const type = parseType(schema);
-            const error = validateValue(type, value);
+            const btnDel = document.createElement('button');
+            btnDel.className = 'danger';
+            btnDel.textContent = 'Remove';
+            btnDel.addEventListener('click', () => {
+              const copy = structuredClone(dataObj);
+              const newArr = Array.isArray(copy[key]) ? copy[key].slice() : arr.slice();
+              newArr.splice(idx, 1);
+              copy[key] = newArr;
+              onChange(copy);
+            });
+            box.appendChild(btnDel);
 
-            function handle(e) {
-                let v = e.target.value;
-                if (type.kind === "bool") v = e.target.checked;
-                if (type.kind === "int" || type.kind === "uint") v = v === "" ? "" : Number(v);
-                onChange(v);
+            container.appendChild(box);
+          });
+
+          const btnAdd = document.createElement('button');
+          btnAdd.className = 'secondary';
+          btnAdd.textContent = 'Add';
+          btnAdd.addEventListener('click', () => {
+            const copy = structuredClone(dataObj);
+            const newArr = Array.isArray(copy[key]) ? copy[key].slice() : arr.slice();
+            if (isSchemaObject(arrSchema)) newArr.push({});
+            else {
+              const t = parseType(arrSchema);
+              if (t.kind === 'bool') newArr.push(false);
+              else if (t.kind === 'int' || t.kind === 'uint') newArr.push(0);
+              else if (t.kind === 'enum') newArr.push(t.values[0] ?? '');
+              else newArr.push('');
             }
+            copy[key] = newArr;
+            onChange(copy);
+          });
 
-            return (
-                <div className="field">
-                    <label>{name}</label>
-                    {type.kind === "enum" &&
-                        <select value={value ?? type.values[0]} onChange={handle}>
-                            {type.values.map(v => <option key={v}>{v}</option>)}
-                        </select>
-                    }
-                    {type.kind === "bool" &&
-                        <input type="checkbox" checked={!!value} onChange={handle} />
-                    }
-                    {(type.kind === "int" || type.kind === "uint") &&
-                        <input
-                            type="number"
-                            value={value}
-                            onChange={handle}
-                            onKeyDown={(e) => {
-                                if (
-                                    !/[0-9]/.test(e.key) &&
-                                    !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "-", "."].includes(e.key)
-                                ) {
-                                    e.preventDefault();
-                                }
-                            }}
-                        />
-
-                    }
-                    {type.kind === "string" &&
-                        <textarea value={value || ""} onChange={handle} />
-                    }
-                    {error && <div className="error-text">{error}</div>}
-                </div>
-            );
+          field.appendChild(container);
+          field.appendChild(btnAdd);
+          card.appendChild(field);
+          continue;
         }
 
-        function ObjectField({ name, schema, value, onChange }) {
-            return (
-                <div className="card">
-                    {name && <h4>{name}</h4>}
-                    {Object.keys(schema).map(key => (
-                        <Field key={key} name={key} schema={schema[key]} value={value[key]} onChange={(v) => { const copy = { ...value }; copy[key] = v; onChange(copy); }} />
-                    ))}
-                </div>
-            );
+        if (isSchemaObject(s)) {
+          const nested = renderObjectFields(
+            s,
+            value || {},
+            (v) => {
+              const copy = structuredClone(dataObj);
+              copy[key] = v;
+              onChange(copy);
+            },
+            key
+          );
+          card.appendChild(nested);
+          continue;
         }
 
-        function ArrayField({ name, schema, value, onChange }) {
-            function add() { onChange([...value, {}]); }
-            function update(i, v) { const copy = [...value]; copy[i] = v; onChange(copy); }
-            function remove(i) { const copy = [...value]; copy.splice(i, 1); onChange(copy); }
+        const field = document.createElement('div');
+        field.className = 'field';
 
-            return (
-                <div className="card">
-                    <h4>{name}</h4>
-                    {value.map((item, i) => (
-                        <div key={i} className="array-item">
-                            <Field name={i} schema={schema} value={item} onChange={(v) => update(i, v)} />
-                            <button className="danger" onClick={() => remove(i)}>Remove</button>
-                        </div>
-                    ))}
-                    <button className="secondary" onClick={add}>Add</button>
-                </div>
-            );
+        const label = document.createElement('label');
+        label.textContent = key;
+        field.appendChild(label);
+
+        const t = parseType(s);
+        const { node, errorNode, getValue } = makeScalarEditor(t, value, (v) => {
+          const copy = structuredClone(dataObj);
+          copy[key] = v;
+          onChange(copy);
+        });
+
+        const err = validateValue(t, getValue());
+        setFieldError(node, errorNode, err);
+
+        field.appendChild(node);
+        field.appendChild(errorNode);
+        card.appendChild(field);
+      }
+
+      return card;
+    }
+
+    function setFieldError(inputNode, errNode, errText) {
+      if (errText) {
+        inputNode.classList.add('error');
+        errNode.style.display = 'block';
+        errNode.textContent = errText;
+      } else {
+        inputNode.classList.remove('error');
+        errNode.style.display = 'none';
+        errNode.textContent = '';
+      }
+    }
+
+    function makeScalarEditor(type, value, onChange) {
+      const err = document.createElement('div');
+      err.className = 'error-text';
+      err.style.display = 'none';
+
+      let node;
+      let current = value;
+
+      function validateAndEmit(v) {
+        current = v;
+        const e = validateValue(type, v);
+        setFieldError(node, err, e);
+        onChange(v);
+      }
+
+      if (type.kind === 'enum') {
+        node = document.createElement('select');
+        for (const v of type.values) {
+          const opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = v;
+          node.appendChild(opt);
         }
+        node.value = (value ?? type.values[0] ?? '');
+        node.addEventListener('change', () => validateAndEmit(node.value));
+      } else if (type.kind === 'bool') {
+        node = document.createElement('input');
+        node.type = 'checkbox';
+        node.checked = !!value;
+        current = node.checked;
+        node.addEventListener('change', () => validateAndEmit(!!node.checked));
+      } else if (type.kind === 'int' || type.kind === 'uint') {
+        node = document.createElement('input');
+        node.type = 'number';
+        node.value = (value ?? 0);
+        node.addEventListener('input', () => {
+          const v = node.value === '' ? '' : Number(node.value);
+          validateAndEmit(v);
+        });
+      } else {
+        node = document.createElement('textarea');
+        node.value = (value ?? '');
+        node.addEventListener('input', () => validateAndEmit(node.value));
+      }
 
-        function JsonPreview({ data }) {
-            const ref = React.useRef(null);
-            useEffect(() => { if (ref.current) Prism.highlightElement(ref.current); }, [data]);
-            const json = JSON.stringify(data, null, 2);
-            return (
-                <pre className="card"><code ref={ref} className="language-json">{json}</code></pre>
-            );
+      return { node, errorNode: err, getValue: () => current };
+    }
+
+    // ---------- JSON editor ----------
+    async function loadEditorBundleOnce() {
+      if (window.PCEditor && typeof window.PCEditor.createJsonEditor === 'function') return true;
+      if (state._editorLoading) return state._editorLoading;
+
+      state._editorLoading = (async () => {
+        try {
+          const auth = await makeAuthHeader();
+          const res = await fetch('/editor.bundle.js', {
+            headers: auth ? { 'Authorization': auth } : {}
+          });
+          if (!res.ok) return false;
+
+          const jsText = await res.text();
+          const blob = new Blob([jsText], { type: 'application/javascript' });
+          const url = URL.createObjectURL(blob);
+
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = url;
+            s.onload = () => { URL.revokeObjectURL(url); resolve(); };
+            s.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+            document.head.appendChild(s);
+          });
+
+          return !!(window.PCEditor && typeof window.PCEditor.createJsonEditor === 'function');
+        } catch {
+          return false;
         }
+      })();
 
-        function hasErrors(schema, data) {
-            for (const key in schema) {
-                const fieldSchema = schema[key];
-                const value = data[key];
-                if (Array.isArray(fieldSchema)) {
-                    for (const item of value || []) {
-                        if (typeof fieldSchema[0] === "object") {
-                            if (hasErrors(fieldSchema[0], item)) return true;
-                        } else if (validateValue(parseType(fieldSchema[0]), item)) return true;
-                    }
-                } else if (typeof fieldSchema === "object") {
-                    if (hasErrors(fieldSchema, value || {})) return true;
-                } else if (validateValue(parseType(fieldSchema), value)) return true;
-            }
-            return false;
+      return state._editorLoading;
+    }
+
+    async function ensureCodeMirror() {
+      if (state.cm) return true;
+
+      const ok = await loadEditorBundleOnce();
+      if (!ok) { setStatus('Cannot load /editor.bundle.js', false); return false; }
+      if (!window.PCEditor || typeof window.PCEditor.createJsonEditor !== 'function') {
+        setStatus('editor.bundle.js loaded, but PCEditor.createJsonEditor not found', false);
+        return false;
+      }
+
+      $('cm').innerHTML = '';
+      const start = pretty(state.data || {});
+
+      const inst = window.PCEditor.createJsonEditor({
+        parent: $('cm'),
+        doc: start,
+        onChange: (text) => {
+          const parsed = safeParseJson(text);
+          $('jsonErr').style.display = parsed.ok ? 'none' : 'inline-block';
+          if (parsed.ok) {
+            state.data = ensureDataDefaults(state.schema, parsed.value);
+            renderForms();
+          }
         }
+      });
 
-        function App() {
-            const [configs, setConfigs] = useState([]);
-            const [selected, setSelected] = useState(null);
-            const [schema, setSchema] = useState(null);
-            const [data, setData] = useState(null);
+      state.cm = inst.view;
+      state.cmApi = inst;
+      return true;
+    }
 
-            useEffect(() => { api('/configs').then(setConfigs); }, []);
+    function syncJsonEditorFromState() {
+      if (!state.cmApi) return;
+      const text = pretty(state.data || {});
+      if (state.cmApi.getValue && state.cmApi.setValue) {
+        const have = state.cmApi.getValue();
+        if (have !== text) state.cmApi.setValue(text);
+      }
+    }
 
-            useEffect(() => {
-                const container = document.querySelector('.tabs-container');
-                if (!container) return;
-                function wheelHandler(e) {
-                    if (e.deltaY !== 0) {
-                        e.preventDefault();
-                        container.scrollLeft += e.deltaY;
-                    }
-                }
-                container.addEventListener('wheel', wheelHandler, { passive: false });
-                return () => container.removeEventListener('wheel', wheelHandler);
-            }, [configs]);
+    // ---------- Tabs / loading ----------
+    function renderTabs() {
+      const tabs = $('tabs');
+      tabs.innerHTML = '';
+      state.configs.forEach((name) => {
+        const el = document.createElement('div');
+        el.className = 'tab' + (state.selected === name ? ' active' : '');
+        el.textContent = name;
+        el.addEventListener('click', () => loadConfig(name));
+        tabs.appendChild(el);
+      });
+    }
 
-            async function load(name) {
-                if (!name) return;
-                setSelected(name);
-                const s = await api(`/config/${name}/sheme`);
-                const d = await api(`/config/${name}/current`);
-                setSchema(s);
-                setData(d);
-            }
+    let lastLoadId = 0;
 
-            async function save() {
-                await api(`/config/${selected}/current`, {
-                    method: "POST",
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                alert("Saved");
-            }
+    async function loadConfig(name) {
+      if (!name) return;
+      const myId = ++lastLoadId;
 
-            async function reload() {
-                await api('/reload', { method: "POST" });
-                alert("Reload triggered");
-            }
+      setStatus('Loading...', null);
 
-            const formHasErrors = schema && data ? hasErrors(schema, data) : true;
+      try {
+        const [schema, data] = await Promise.all([
+          api(`/config/${name}/sheme`),
+          api(`/config/${name}/current`)
+        ]);
 
-            return (
-                <div className="wrap">
-                    <div className="header">
-                        <div className="title">PluginCore Config Manager</div>
-                        <div className="tabs-wrapper">
-                            <div className="tabs-container">
-                                <div className="tabs">
-                                    {configs.map(c => (
-                                        <div key={c} className={`tab ${selected === c ? "active" : ""}`} onClick={() => load(c)}> {c} </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="tabs-shadow"></div>
-                        </div>
-                    </div>
+        if (myId !== lastLoadId) return;
 
-                    {schema && data && <>
-                        <ObjectField schema={schema} value={data} onChange={setData} />
-                        <div className="card">
-                            <h4>JSON Preview</h4>
-                            <JsonPreview data={data} />
-                        </div>
-                        <div className="actions">
-                            <button className="primary" onClick={save} disabled={formHasErrors}>Save</button>
-                            <button className="danger" onClick={reload}>Reload</button>
-                        </div>
-                    </>}
-                </div>
-            );
-        }
+        state.selected = name;
+        state.schema = schema;
+        state.data = ensureDataDefaults(schema, data);
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-    </script>
+        renderTabs();
+        renderForms();
+        await ensureCodeMirror();
+        syncJsonEditorFromState();
+        setStatus('Loaded: ' + name, true);
+      } catch (e) {
+        if (myId !== lastLoadId) return;
+        setStatus('Load failed: ' + (e && e.message ? e.message : e), false);
+      }
+    }
+
+    // ---------- Actions ----------
+    async function save() {
+      if (!state.selected) return;
+      setStatus('Saving...', null);
+      try {
+        await api(`/config/${state.selected}/current`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          body: pretty(state.data)
+        });
+        setStatus('Saved', true);
+      } catch (e) {
+        setStatus('Save failed: ' + (e && e.message ? e.message : e), false);
+      }
+    }
+
+    async function reloadPlugin() {
+      setStatus('Reloading...', null);
+      try {
+        const text = await api('/reload', { method: 'POST' });
+        setStatus('Reload triggered: ' + String(text).slice(0, 64), true);
+      } catch (e) {
+        setStatus('Reload failed: ' + (e && e.message ? e.message : e), false);
+      }
+    }
+
+    function copyJson() {
+      const t = pretty(state.data || {});
+      navigator.clipboard.writeText(t).then(
+        () => setStatus('Copied', true),
+        () => setStatus('Copy failed', false)
+      );
+    }
+
+    function formatJsonEditor() {
+      if (!state.cmApi) return;
+      const parsed = safeParseJson(state.cmApi.getValue());
+      if (!parsed.ok) {
+        $('jsonErr').style.display = 'inline-block';
+        setStatus('Invalid JSON: ' + parsed.error, false);
+        return;
+      }
+      state.data = ensureDataDefaults(state.schema, parsed.value);
+      renderForms();
+      syncJsonEditorFromState();
+      setStatus('Formatted', true);
+    }
+
+    // ---------- Init ----------
+    $('btnSave').addEventListener('click', save);
+    $('btnReload').addEventListener('click', reloadPlugin);
+    $('btnCopy').addEventListener('click', copyJson);
+    $('btnFormat').addEventListener('click', formatJsonEditor);
+
+    (async function init() {
+      setStatus('Loading configs...', null);
+      try {
+        const configs = await api('/configs');
+        state.configs = Array.isArray(configs) ? configs : [];
+        renderTabs();
+        setStatus('Select a config', true);
+        if (state.configs.length) await loadConfig(state.configs[0]);
+      } catch (e) {
+        setStatus('Init failed (not authorized?): ' + (e && e.message ? e.message : e), false);
+      }
+    })();
+  </script>
 </body>
 
 </html>

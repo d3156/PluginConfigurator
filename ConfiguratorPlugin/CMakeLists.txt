@@ -15,6 +15,11 @@ string(REPLACE "\\" "\\\\" LOGIN_HTML "${LOGIN_HTML}")
 string(REPLACE "\"" "\\\"" LOGIN_HTML "${LOGIN_HTML}")
 string(REPLACE "\n" "\\n\"\n\"" LOGIN_HTML "${LOGIN_HTML}")
 
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/web/editor.bundle.js EDITOR_BUNDLE)
+string(REPLACE "\\" "\\\\" EDITOR_BUNDLE "${EDITOR_BUNDLE}")
+string(REPLACE "\"" "\\\"" EDITOR_BUNDLE "${EDITOR_BUNDLE}")
+string(REPLACE "\n" "\\n\"\n\"" EDITOR_BUNDLE "${EDITOR_BUNDLE}")
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/web/embedded_page.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/embedded_page.cpp @ONLY)
 target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/embedded_page.cpp)
 

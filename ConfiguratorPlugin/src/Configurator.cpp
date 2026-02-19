@@ -4,6 +4,7 @@
 #include <string>
 #include <sys/prctl.h>
 
+extern const char *embedded_editor_page;
 extern const char *embedded_html_page;
 extern const char *embedded_login_page;
 
@@ -70,6 +71,13 @@ void Configurator::runIO()
         server->setContentType("text/html; charset=utf-8");
         return {true, std::string(auth.check(req) ? embedded_html_page : embedded_login_page)};
     });
+    server->addPath("/editor.bundle.js",
+                    [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
+                        server->setContentType("text/html; charset=utf-8");
+                        if (!auth.check(req)) return {true, std::string(embedded_login_page)};
+                        server->setContentType("application/javascript; charset=utf-8");
+                        return {true, embedded_editor_page};
+                    });
     io.run();
     G_LOG(1, "Io-context canceled");
 }

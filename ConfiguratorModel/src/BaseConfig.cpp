@@ -6,31 +6,38 @@ namespace d3156
         if (parent) parent->childs.push_back(this);
     }
 
-    void Config::load(const pt::ptree &ptree)
+    void Config::load(const js::object &root)
     {
-        auto &obj = name.empty() ? ptree : ptree.get_child(name, pt::ptree{});
-        for (IConfig *i : childs) i->load(obj);
+        const js::object *obj = &root;
+        if (!name.empty()) {
+            auto *pv = root.if_contains(name);
+            if (!pv) return;
+            auto *po = pv->if_object();
+            if (!po) return;
+            obj = po;
+        }
+        for (IConfig *i : childs) i->load(*obj);
     }
 
-    void Config::save(pt::ptree &ptree) const
+    void Config::save(js::object &root) const
     {
         if (name.empty()) {
-            for (IConfig *i : childs) i->save(ptree);
+            for (IConfig *i : childs) i->save(root);
             return;
         }
-        pt::ptree obj;
+        js::object obj;
         for (IConfig *i : childs) i->save(obj);
-        ptree.add_child(name, obj);
+        root[name] = std::move(obj);
     }
 
-    void Config::addSkeleton(pt::ptree &ptree) const
+    void Config::addSkeleton(js::object &root) const
     {
         if (name.empty()) {
-            for (IConfig *i : childs) i->addSkeleton(ptree);
+            for (IConfig *i : childs) i->addSkeleton(root);
             return;
         }
-        pt::ptree obj{};
+        js::object obj;
         for (IConfig *i : childs) i->addSkeleton(obj);
-        ptree.add_child(name, obj);
+        root[name] = std::move(obj);
     }
 }

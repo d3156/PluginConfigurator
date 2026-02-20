@@ -65,11 +65,11 @@ namespace d3156
                 items.push_back(std::move(item));
             }
             return;
-        }
-        for (auto const &j : *pa) {
-            T v{};
-            if (from_json_scalar<T>(j, v)) items.push_back(std::move(v));
-        }
+        } else
+            for (auto const &j : *pa) {
+                T v{};
+                if (from_json_scalar<T>(j, v)) items.push_back(std::move(v));
+            }
     }
 
     template <typename T> inline void ConfigArray<T>::save(js::object &obj) const
@@ -97,7 +97,7 @@ namespace d3156
             obj[name] = js::array{std::move(elem)};
             return;
         }
-        obj[name] = js::array{to_json_scalar<T>(T{})};
+        else obj[name] = js::array{to_json_scalar<T>(T{})};
     }
 
     template <typename T> inline ConfigArray<T>::ConfigArray(std::string name_, Config *parent) : name(std::move(name_))

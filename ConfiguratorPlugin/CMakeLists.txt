@@ -4,6 +4,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/workspace.cmake")
 create_target(plugin)
 dependency("../.." ConfiguratorModel "https://gitlab.bubki.zip/d3156/PluginConfigurator.git")
 dependency("../.." EasyHttpLib "https://gitlab.bubki.zip/d3156/EasyHttpLib.git")
+dependency("../.." MetricsModel "https://gitlab.bubki.zip/d3156/MetricsModel.git")
 
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/web/index.html PAGE_HTML)
 string(REPLACE "\\" "\\\\" PAGE_HTML "${PAGE_HTML}")

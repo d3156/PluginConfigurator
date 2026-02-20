@@ -1,8 +1,8 @@
 #include "Configurator.hpp"
 #include <PluginCore/Logger/Log>
 #include <linux/prctl.h>
-#include <string>
 #include <sys/prctl.h>
+#include <MetricsModel/MetricsModel>
 
 extern const char *embedded_editor_page;
 extern const char *embedded_html_page;
@@ -16,6 +16,7 @@ void Configurator::registerArgs(d3156::Args::Builder &bldr)
 void Configurator::registerModels(d3156::PluginCore::ModelsStorage &models)
 {
     model = models.registerModel<ConfiguratorModel>();
+    model->registerConfig("MetricsModel", models.registerModel<MetricsModel>()->config);
 }
 
 void Configurator::postInit()

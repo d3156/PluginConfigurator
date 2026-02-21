@@ -23,4 +23,6 @@ public:
     std::string getSheme(const std::string &path);
     std::vector<std::string> &configsPaths();
     std::string configsString();
+    static std::string readFileToString(const std::string &file);
+    static void pretty_print(std::ostream &os, d3156::js::value const &jv, std::string *indent = nullptr);
 };

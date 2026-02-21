@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PluginCore Logs</title>
+  <style>
+    :root {
+      --bg0: #0b0f17;
+      --bg1: #0f172a;
+      --card: #101a33cc;
+      --txt: #e7ecff;
+      --muted: #aab3d6;
+      --line: #243154;
+      --acc: #8b5cf6;
+      --r: 16px;
+      --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+      --w: 1600px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--txt);
+      background:
+        radial-gradient(1200px 700px at 20% 10%, #1b2b67 0%, transparent 55%),
+        radial-gradient(900px 600px at 90% 30%, #2b145b 0%, transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+    }
+
+    .wrap {
+      width: min(var(--w), calc(100vw - 24px));
+      margin: 0 auto;
+      padding: 20px 12px 40px;
+    }
+
+    .header {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .topbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 420px 1fr;
+      align-items: start;
+      width: 100%;
+    }
+
+    @media (max-width: 980px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      width: 100%;
+      border: 1px solid rgba(36, 49, 84, .8);
+      border-radius: var(--r);
+      padding: 12px;
+      background: linear-gradient(180deg, rgba(16, 26, 51, .75), rgba(15, 26, 53, .55));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin: 0 0 6px;
+      color: var(--muted);
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(16, 26, 51, .6);
+      color: var(--txt);
+      font-size: 14px;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--acc);
+      box-shadow: 0 0 0 2px rgba(139, 92, 246, .25);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 0;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all .15s ease;
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .primary {
+      background: var(--acc);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .secondary {
+      background: rgba(36, 49, 84, .9);
+      color: var(--txt);
+      font-weight: 700;
+    }
+
+    .danger {
+      background: #ef4444;
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .badge {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(36, 49, 84, .8);
+      color: var(--muted);
+    }
+
+    .status-ok {
+      color: #22c55e;
+      border-color: rgba(34, 197, 94, .35);
+    }
+
+    .status-bad {
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, .35);
+    }
+
+    .logbox {
+      height: 70vh;
+      min-height: 420px;
+      overflow: auto;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(36, 49, 84, .8);
+      background: rgba(16, 26, 51, .55);
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="title">PluginCore Logs</div>
+
+      <div class="topbar">
+        <span id="status" class="badge">Idle</span>
+        <a href="/index.html" class="badge" style="text-decoration:none; color:inherit;">Back to configs</a>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <div class="row" style="justify-content:space-between;">
+            <div style="font-weight:800;">Log files</div>
+            <button id="btnRefresh" class="secondary">Refresh list</button>
+          </div>
+
+          <div class="field" style="margin-top:12px;">
+            <label for="selLogs">Select log</label>
+            <select id="selLogs"></select>
+            <div class="muted" style="margin-top:8px; font-size:12px;">
+              Endpoints: <span class="badge">/logs</span> and <span class="badge">POST /log</span>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:12px;">
+            <div style="flex:1; min-width:220px;">
+              <label for="selFreq">Auto refresh</label>
+              <select id="selFreq">
+                <option value="0">Off</option>
+                <option value="1">1s</option>
+                <option value="2">2s</option>
+                <option value="5" selected>5s</option>
+                <option value="10">10s</option>
+                <option value="30">30s</option>
+              </select>
+            </div>
+
+            <div style="flex:1; min-width:220px;">
+              <label>&nbsp;</label>
+              <button id="btnTail" class="primary" style="width:100%;">Reload now</button>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:12px;">
+            <button id="btnCopy" class="secondary">Copy</button>
+            <button id="btnPause" class="secondary">Pause</button>
+            <button id="btnEnd" class="secondary">To end</button>
+            <span id="meta" class="badge">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="row" style="justify-content:space-between;">
+            <div style="font-weight:800;">Log</div>
+            <span id="err" class="badge status-bad" style="display:none;">Error</span>
+          </div>
+          <pre id="logView" class="logbox"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from "/auth.js";
+
+    const $ = (id) => document.getElementById(id);
+
+    const state = {
+      logs: [],
+      selected: null,
+      paused: false,
+      timer: null,
+      inFlight: false,
+      lastLen: 0,
+      followEnd: true,
+    };
+
+    function getScrollInfo(el) {
+      const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
+      const top = el.scrollTop;
+      const distToBottom = maxTop - top;
+      const nearBottom = distToBottom <= 4; // порог в px
+      return { top, distToBottom, nearBottom };
+    }
+
+    function scrollToEnd(el) {
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function setStatus(text, ok = null) {
+      const el = $("status");
+      el.textContent = text;
+      el.classList.remove("status-ok", "status-bad");
+      if (ok === true) el.classList.add("status-ok");
+      if (ok === false) el.classList.add("status-bad");
+    }
+
+    function renderLogList() {
+      const sel = $("selLogs");
+      sel.innerHTML = "";
+      state.logs.forEach((name) => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        sel.appendChild(opt);
+      });
+
+      if (state.selected && state.logs.includes(state.selected)) sel.value = state.selected;
+      else if (state.logs.length) { state.selected = state.logs[0]; sel.value = state.selected; }
+    }
+
+    async function loadLogsList() {
+      setStatus("Loading log list...", null);
+      try {
+        const payload = await api("/logs");
+        state.logs = Array.isArray(payload) ? payload.map(String).filter(Boolean) : [];
+        renderLogList();
+        setStatus(state.logs.length ? "Logs loaded" : "No logs", true);
+      } catch (e) {
+        setStatus("Failed to load /logs: " + (e && e.message ? e.message : e), false);
+      }
+    }
+
+    async function loadLogOnce() {
+      if (!state.selected) return;
+      if (state.paused) return;
+      if (state.inFlight) return;
+
+      state.inFlight = true;
+      $("err").style.display = "none";
+
+      const view = $("logView");
+      const before = getScrollInfo(view);
+      const wantFollow = state.followEnd && before.nearBottom;
+
+      try {
+        const text = await api("/log", {
+          method: "POST",
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+          body: state.selected
+        });
+
+        const s = String(text ?? "");
+        view.textContent = s;
+
+        if (wantFollow) {
+          scrollToEnd(view);
+        } else {
+          const maxTopAfter = Math.max(0, view.scrollHeight - view.clientHeight);
+          view.scrollTop = Math.max(0, maxTopAfter - before.distToBottom);
+        }
+
+        state.lastLen = s.length;
+        $("meta").textContent = `${state.selected} • ${state.lastLen} bytes`;
+        setStatus("Updated", true);
+      } catch (e) {
+        $("err").style.display = "inline-block";
+        setStatus("Failed to load log: " + (e && e.message ? e.message : e), false);
+      } finally {
+        state.inFlight = false;
+      }
+    }
+
+    function stopAutoRefresh() {
+      if (state.timer) clearTimeout(state.timer);
+      state.timer = null;
+    }
+
+    function scheduleAutoRefresh() {
+      stopAutoRefresh();
+      const sec = Number($("selFreq").value || 0);
+      if (!sec || sec <= 0) return;
+
+      const tick = async () => {
+        await loadLogOnce();
+        const sec2 = Number($("selFreq").value || 0);
+        if (sec2 > 0) state.timer = setTimeout(tick, sec2 * 1000);
+      };
+
+      state.timer = setTimeout(tick, sec * 1000);
+    }
+
+    function togglePause() {
+      state.paused = !state.paused;
+      $("btnPause").textContent = state.paused ? "Resume" : "Pause";
+      if (!state.paused) {
+        loadLogOnce();
+        scheduleAutoRefresh();
+      } else {
+        setStatus("Paused", null);
+      }
+    }
+
+    function copyLog() {
+      const t = $("logView").textContent || "";
+      navigator.clipboard.writeText(t).then(
+        () => setStatus("Copied", true),
+        () => setStatus("Copy failed", false)
+      );
+    }
+
+    $("btnRefresh").addEventListener("click", async () => {
+      await loadLogsList();
+      await loadLogOnce();
+      scheduleAutoRefresh();
+    });
+
+    $("btnEnd").addEventListener("click", () => {
+      state.followEnd = true;
+      scrollToEnd($("logView"));
+      setStatus("Jumped to end", true);
+    });
+
+    $("logView").addEventListener("scroll", () => {
+      const info = getScrollInfo($("logView"));
+      state.followEnd = info.nearBottom;
+    });
+
+    $("selLogs").addEventListener("change", async () => {
+      state.selected = $("selLogs").value || null;
+      await loadLogOnce();
+      scheduleAutoRefresh();
+    });
+
+    $("selFreq").addEventListener("change", () => {
+      scheduleAutoRefresh();
+    });
+
+    $("btnTail").addEventListener("click", async () => {
+      await loadLogOnce();
+      scheduleAutoRefresh();
+    });
+
+    $("btnCopy").addEventListener("click", copyLog);
+    $("btnPause").addEventListener("click", togglePause);
+
+    (async function init() {
+      setStatus("Init...", null);
+      await loadLogsList();
+      if (state.logs.length) {
+        state.selected = state.logs[0];
+        $("selLogs").value = state.selected;
+        await loadLogOnce();
+        scheduleAutoRefresh();
+        setStatus("Ready", true);
+      } else {
+        setStatus("No logs available", true);
+      }
+    })();
+  </script>
+</body>
+
+</html>

@@ -1,5 +1,6 @@
 #include "Configurator.hpp"
 #include <PluginCore/Logger/Log>
+#include <filesystem>
 #include <linux/prctl.h>
 #include <sys/prctl.h>
 #include <MetricsModel/MetricsModel>
@@ -7,6 +8,8 @@
 extern const char *embedded_editor_page;
 extern const char *embedded_html_page;
 extern const char *embedded_login_page;
+extern const char *embedded_logs_page;
+extern const char *embedded_auth_page;
 
 void Configurator::registerArgs(d3156::Args::Builder &bldr)
 {
@@ -34,6 +37,10 @@ void Configurator::runIO()
     prctl(PR_SET_NAME, "ConfiguratorPlugin", 0, 0, 0);
     server = std::make_unique<d3156::EasyWebServer>(io, port);
     G_LOG(0, "Configurator server started at http://0.0.0.0:" << port << "/index.html");
+    server->addPath("/auth.js", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
+        server->setContentType("application/javascript; charset=utf-8");
+        return {true, std::string(embedded_auth_page)};
+    });
     server->addPath("/reload", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
         server->setContentType("text/html; charset=utf-8");
         if (!auth.check(req)) return {true, std::string(embedded_login_page)};
@@ -62,6 +69,23 @@ void Configurator::runIO()
                             return {true, model->getSheme(conf)};
                         });
     }
+    server->addPath("/logs.html", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
+        server->setContentType("text/html; charset=utf-8");
+        return {true, auth.check(req) ? std::string(embedded_logs_page) : std::string(embedded_login_page)};
+    });
+    server->addPath("/logs", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
+        server->setContentType("text/html; charset=utf-8");
+        if (!auth.check(req)) return {true, std::string(embedded_login_page)};
+        server->setContentType("application/json; charset=utf-8");
+        return {true, logs()};
+    });
+    server->addPath("/log", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
+        server->setContentType("text/html; charset=utf-8");
+        if (!auth.check(req)) return {true, std::string(embedded_login_page)};
+        if (!std::filesystem::exists("./logs/"+req.body())) return {false, "no file"};
+        server->setContentType("text/plain; charset=utf-8");
+        return {true, ConfiguratorModel::readFileToString("./logs/"+req.body())};
+    });
     server->addPath("/configs", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
         server->setContentType("text/html; charset=utf-8");
         if (!auth.check(req)) return {true, std::string(embedded_login_page)};
@@ -104,4 +128,13 @@ Configurator::~Configurator()
     } catch (std::exception &e) {
         R_LOG(1, "Exception throwed in exit: " << e.what());
     }
+}
+
+std::string Configurator::logs()
+{
+    std::string paths = "";
+    for (std::filesystem::directory_iterator it("./logs"), end; it != end; ++it)
+        paths += (paths.empty() ? "\"" : ",\"") + it->path().filename().string() + "\"";
+    G_LOG(100, "/configs Answer:" << paths);
+    return "[" + paths + "]";
 }

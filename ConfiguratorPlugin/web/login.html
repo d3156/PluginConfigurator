@@ -1,172 +1,210 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Login - PluginCore Config Manager</title>
   <style>
-    :root { --bg0:#0b0f17; --bg1:#0f172a; --txt:#e7ecff; --acc:#8b5cf6; --r:16px; --line:#243154; }
-    html,body { margin:0; height:100%; font-family:system-ui, sans-serif; color:var(--txt);
-      background:linear-gradient(180deg,var(--bg0),var(--bg1)); display:flex; align-items:center; justify-content:center; }
-    .card { background:rgba(16,26,51,.75); padding:32px; border-radius:var(--r); width:min(420px, calc(100vw - 32px)); border:1px solid rgba(36,49,84,.8); }
-    h2 { margin:0 0 16px; }
-    .muted { opacity:.8; font-size:13px; line-height:1.35; margin-bottom:14px; }
-    input { width:100%; margin:0 0 12px; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
-      background:rgba(16,26,51,.6); color:var(--txt); font-size:14px; }
-    button { width:100%; padding:10px 12px; border-radius:999px; border:0; background:var(--acc); color:#fff; font-weight:700; cursor:pointer; }
-    button:disabled { opacity:.5; cursor:not-allowed; }
-    .row { display:flex; gap:10px; margin-top:10px; }
-    .secondary { background:rgba(36,49,84,.9); font-weight:600; }
-    .error { color:#ef4444; margin:10px 0 0; white-space:pre-wrap; font-size:13px; }
-    .ok { color:#22c55e; margin:10px 0 0; font-size:13px; }
-    code { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size:12px; }
+    :root {
+      --bg0: #0b0f17;
+      --bg1: #0f172a;
+      --txt: #e7ecff;
+      --acc: #8b5cf6;
+      --r: 16px;
+      --line: #243154;
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      font-family: system-ui, sans-serif;
+      color: var(--txt);
+      background: linear-gradient(180deg, var(--bg0), var(--bg1));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      background: rgba(16, 26, 51, .75);
+      padding: 32px;
+      border-radius: var(--r);
+      width: min(420px, calc(100vw - 32px));
+      border: 1px solid rgba(36, 49, 84, .8);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+    }
+
+    .muted {
+      opacity: .8;
+      font-size: 13px;
+      line-height: 1.35;
+      margin-bottom: 14px;
+    }
+
+    input {
+      width: 100%;
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(16, 26, 51, .6);
+      color: var(--txt);
+      font-size: 14px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 0;
+      background: var(--acc);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .secondary {
+      background: rgba(36, 49, 84, .9);
+      font-weight: 600;
+    }
+
+    .error {
+      color: #ef4444;
+      margin: 10px 0 0;
+      white-space: pre-wrap;
+      font-size: 13px;
+    }
+
+    .ok {
+      color: #22c55e;
+      margin: 10px 0 0;
+      font-size: 13px;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+      font-size: 12px;
+    }
   </style>
 </head>
+
 <body>
   <div class="card">
     <h2>PluginCore Login</h2>
     <div class="muted">
       Введите <code>username</code> и <code>TOTP secret (hex)</code>. После входа секрет сохранится в браузере.
     </div>
-
     <input id="username" placeholder="Username" autocomplete="username" />
     <input id="secret" placeholder="TOTP Secret (hex)" autocomplete="one-time-code" />
-
     <button id="btnLogin">Login</button>
     <div class="row">
       <button id="btnClear" class="secondary" type="button">Clear saved</button>
       <button id="btnPing" class="secondary" type="button">Test</button>
     </div>
-
     <div id="msg" class=""></div>
   </div>
+  <script type="module">
+    import {
+      isHexEven,
+      getSavedCreds,
+      setSavedCreds,
+      clearSavedCreds,
+      makeAuthHeaderFrom,
+    } from "/auth.js";
 
-<script>
-(function(){
-  const $u = document.getElementById('username');
-  const $s = document.getElementById('secret');
-  const $msg = document.getElementById('msg');
-  const $login = document.getElementById('btnLogin');
-  const $clear = document.getElementById('btnClear');
-  const $ping = document.getElementById('btnPing');
+    const $u = document.getElementById("username");
+    const $s = document.getElementById("secret");
+    const $msg = document.getElementById("msg");
+    const $login = document.getElementById("btnLogin");
+    const $clear = document.getElementById("btnClear");
+    const $ping = document.getElementById("btnPing");
 
-  function setMsg(text, ok){
-    $msg.textContent = text || '';
-    $msg.className = ok ? 'ok' : 'error';
-  }
+    function setMsg(text, ok) {
+      $msg.textContent = text || "";
+      $msg.className = ok ? "ok" : "error";
+    }
 
-  function isHex(str){
-    return typeof str === 'string' && str.length > 0 && str.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(str);
-  }
+    function loadSaved() {
+      const creds = getSavedCreds();
+      if (creds?.username) $u.value = creds.username;
+      if (creds?.secretHex) $s.value = creds.secretHex;
+    }
 
-  async function sha256Hex(message) {
-    const data = new TextEncoder().encode(message);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
-  }
+    async function doFetchTarget(authHeader) {
+      const TARGET_URL = window.location.href;
+      return fetch(TARGET_URL, { headers: { Authorization: authHeader } });
+    }
 
-  function hexToBytes(hex) {
-    const out = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i*2, 2), 16);
-    return out;
-  }
+    async function loginFlow() {
+      setMsg("", true);
+      const username = ($u.value || "").trim();
+      const secretHex = ($s.value || "").trim();
 
-  async function generateTOTP(secretHex, counter) {
-    const keyBytes = hexToBytes(secretHex);
-    const counterBuf = new ArrayBuffer(8);
-    const view = new DataView(counterBuf);
-    view.setBigUint64(0, BigInt(counter), false); // big-endian
-    const key = await crypto.subtle.importKey("raw", keyBytes, { name:"HMAC", hash:"SHA-1" }, false, ["sign"]);
-    const sig = await crypto.subtle.sign("HMAC", key, counterBuf);
-    const hmac = new Uint8Array(sig);
+      if (!username) return setMsg("Username is empty", false);
+      if (!isHexEven(secretHex)) return setMsg("Secret must be hex string with even length", false);
 
-    const offset = hmac[hmac.length - 1] & 0x0f;
-    const binary = ((hmac[offset] & 0x7f) << 24) |
-                   ((hmac[offset+1] & 0xff) << 16) |
-                   ((hmac[offset+2] & 0xff) <<  8) |
-                   ( hmac[offset+3] & 0xff);
-    return (binary % 1000000).toString().padStart(6,'0');
-  }
-
-  async function makeAuth(username, secretHex) {
-    const salt = Math.random().toString(36).slice(2, 12);
-    const timestep = 15; // должен совпадать с сервером [file:1]
-    const counter = Math.floor(Date.now()/1000/timestep);
-    const totp = await generateTOTP(secretHex, counter);
-    const hash = await sha256Hex(username + totp + salt);
-    return `${hash}?${salt}`;
-  }
-
-  function loadSaved(){
-    const su = localStorage.getItem('username') || '';
-    const ss = localStorage.getItem('totp_secret') || '';
-    if (su) $u.value = su;
-    if (ss) $s.value = ss;
-  }
-
-  async function doFetchIndex(authHeader){
-    return fetch('/index.html', { headers: { 'Authorization': authHeader } });
-  }
-
-  async function loginFlow(){
-    setMsg('', true);
-    const username = ($u.value || '').trim();
-    const secret = ($s.value || '').trim();
-
-    if (!username) return setMsg('Username is empty', false);
-    if (!isHex(secret)) return setMsg('Secret must be hex string with even length', false);
-
-    $login.disabled = true;
-    try{
-      const auth = await makeAuth(username, secret);
-      const res = await doFetchIndex(auth);
-      const html = await res.text();
-
-      if (!html.includes('PluginCore Config Manager')) {
-        throw new Error('Auth failed or server returned unexpected page');
+      $login.disabled = true;
+      try {
+        const auth = await makeAuthHeaderFrom(username, secretHex);
+        const res = await doFetchTarget(auth);
+        const html = await res.text();
+        if (html.includes("PluginCore Login")) throw new Error("Auth failed");
+        setSavedCreds(username, secretHex);
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (e) {
+        setMsg(String(e && e.message ? e.message : e), false);
+      } finally {
+        $login.disabled = false;
       }
-
-      localStorage.setItem('username', username);
-      localStorage.setItem('totp_secret', secret);
-
-      // Перерисуем целиком, как у вас было [file:1]
-      document.open();
-      document.write(html);
-      document.close();
-    } catch(e){
-      setMsg(String(e && e.message ? e.message : e), false);
-    } finally {
-      $login.disabled = false;
     }
-  }
 
-  async function testAuth(){
-    setMsg('', true);
-    const username = (localStorage.getItem('username') || $u.value || '').trim();
-    const secret = (localStorage.getItem('totp_secret') || $s.value || '').trim();
-    if (!username || !isHex(secret)) return setMsg('No saved creds (or invalid secret)', false);
+    async function testAuth() {
+      setMsg("", true);
+      const saved = getSavedCreds();
+      const username = (saved?.username || $u.value || "").trim();
+      const secretHex = (saved?.secretHex || $s.value || "").trim();
+      if (!username || !isHexEven(secretHex)) return setMsg("No saved creds (or invalid secret)", false);
+      try {
+        const auth = await makeAuthHeaderFrom(username, secretHex);
+        const res = await doFetchTarget(auth);
+        const text = await res.text();
 
-    try{
-      const auth = await makeAuth(username, secret);
-      const res = await doFetchIndex(auth);
-      const text = await res.text();
-      if (text.includes('PluginCore Config Manager')) setMsg('OK: authorized', true);
-      else setMsg('FAIL: not authorized', false);
-    } catch(e){
-      setMsg(String(e && e.message ? e.message : e), false);
+        if (text.includes("PluginCore Config Manager")) setMsg("OK: authorized", true);
+        else setMsg("FAIL: not authorized", false);
+      } catch (e) {
+        setMsg(String(e && e.message ? e.message : e), false);
+      }
     }
-  }
 
-  $login.addEventListener('click', loginFlow);
-  $clear.addEventListener('click', () => {
-    localStorage.removeItem('username');
-    localStorage.removeItem('totp_secret');
-    setMsg('Saved credentials cleared', true);
-  });
-  $ping.addEventListener('click', testAuth);
-
-  loadSaved();
-})();
-</script>
+    $login.addEventListener("click", loginFlow);
+    $clear.addEventListener("click", () => {
+      clearSavedCreds();
+      setMsg("Saved credentials cleared", true);
+    });
+    $ping.addEventListener("click", testAuth);
+    [$u, $s].forEach((el) => el.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") loginFlow();
+    }));
+    loadSaved();
+  </script>
 </body>
+
 </html>

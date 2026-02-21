@@ -23,5 +23,7 @@ public:
     void registerModels(d3156::PluginCore::ModelsStorage &models) override;
     void postInit() override;
 
+    std::string logs();
+
     ~Configurator();
 };

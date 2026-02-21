@@ -10,14 +10,14 @@ void ConfiguratorModel::init() {}
 
 void ConfiguratorModel::postInit() {}
 
-static std::string readFileToString(const std::string &file)
+std::string ConfiguratorModel::readFileToString(const std::string &file)
 {
     std::ifstream ifs(file, std::ios::binary);
     if (!ifs) return {};
     return (std::ostringstream() << ifs.rdbuf()).str();
 }
 
-static void pretty_print(std::ostream &os, d3156::js::value const &jv, std::string *indent = nullptr)
+void ConfiguratorModel::pretty_print(std::ostream &os, d3156::js::value const &jv, std::string *indent)
 {
     std::string indent_;
     if (!indent) indent = &indent_;

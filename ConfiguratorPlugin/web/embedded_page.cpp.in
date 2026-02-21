@@ -14,5 +14,13 @@ __attribute__((visibility("default")))
 const char* embedded_editor_page =
 "@EDITOR_BUNDLE@";
 
+__attribute__((visibility("default")))
+const char* embedded_auth_page =
+"@AUTH_JS@";
+
+__attribute__((visibility("default")))
+const char* embedded_logs_page =
+"@LOGS_HTML@";
+
 }
 

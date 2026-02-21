@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="ru">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -205,8 +204,6 @@
 
     .cm-host { min-height: 380px; }
 
-    /* -------- CodeMirror 6: VSCode-like -------- */
-
     .cm-editor {
       background-color: #101a33;
       color: #d4d4d4;
@@ -218,10 +215,9 @@
 
     .cm-editor .cm-scroller {
       line-height: 1.5;
-      overflow: auto; /* безопасно: и вертикаль, и горизонталь по необходимости */
+      overflow: auto;
     }
 
-    /* Надёжный перенос, включая длинные токены/URL */
     .cm-editor .cm-content {
       white-space: pre-wrap;
       word-break: break-word;
@@ -252,7 +248,7 @@
     .cm-editor .cm-lineNumbers .cm-gutterElement { padding: 0 6px; }
     .cm-editor .cm-activeLineGutter { background-color: #1f2937; }
 
-    /* JSON highlighting classes (твои реальные: ͼe/ͼd/ͼc) */
+    /* JSON highlighting classes */
     .cm-editor .ͼpropertyName { color: #9cdcfe; }
     .cm-editor .ͼstring, .cm-editor .ͼe { color: #ce9178; }
     .cm-editor .ͼnumber, .cm-editor .ͼd { color: #b5cea8; }
@@ -305,6 +301,8 @@
   </div>
 
   <script type="module">
+    import { api, makeAuthHeader } from "/auth.js";
+
     const $ = (id) => document.getElementById(id);
 
     const state = {
@@ -314,6 +312,7 @@
       data: null,
       cm: null,
       cmApi: null,
+      _editorLoading: null,
     };
 
     // --- Sync source guard (prevents feedback loop) ---
@@ -326,64 +325,13 @@
       finally { updatingSource = prev; }
     }
 
-    // ---------- AUTH ----------
-    async function sha256Hex(message) {
-      const data = new TextEncoder().encode(message);
-      const hash = await crypto.subtle.digest('SHA-256', data);
-      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-    function hexToBytes(hex) {
-      const out = new Uint8Array(hex.length / 2);
-      for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
-      return out;
-    }
-    async function generateTOTP(secretHex, counter) {
-      const keyBytes = hexToBytes(secretHex);
-      const counterBuf = new ArrayBuffer(8);
-      const view = new DataView(counterBuf);
-      view.setBigUint64(0, BigInt(counter), false);
-      const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
-      const sig = await crypto.subtle.sign("HMAC", key, counterBuf);
-      const hmac = new Uint8Array(sig);
-      const offset = hmac[hmac.length - 1] & 0x0f;
-      const binary = ((hmac[offset] & 0x7f) << 24) |
-        ((hmac[offset + 1] & 0xff) << 16) |
-        ((hmac[offset + 2] & 0xff) << 8) |
-        (hmac[offset + 3] & 0xff);
-      return (binary % 1000000).toString().padStart(6, '0');
-    }
-    async function makeAuthHeader() {
-      const username = localStorage.getItem('username');
-      const secret = localStorage.getItem('totp_secret');
-      if (!username || !secret) return null;
-      const salt = Math.random().toString(36).slice(2, 12);
-      const timestep = 15;
-      const counter = Math.floor(Date.now() / 1000 / timestep);
-      const totp = await generateTOTP(secret, counter);
-      const hash = await sha256Hex(username + totp + salt);
-      return `${hash}?${salt}`;
-    }
-
-    async function api(url, options = {}) {
-      const headers = { ...(options.headers || {}) };
-      const auth = await makeAuthHeader();
-      if (auth) headers['Authorization'] = auth;
-      const res = await fetch(url, { ...options, headers });
-
-      const ct = res.headers.get('content-type') || '';
-      if (ct.includes('application/json')) return await res.json();
-      const text = await res.text();
-      if (text.includes('PluginCore Login')) window.location.href = '/index.html';
-      return text;
-    }
-
     // ---------- UI helpers ----------
     function setStatus(text, ok = null) {
-      const el = $('status');
+      const el = $("status");
       el.textContent = text;
-      el.classList.remove('status-ok', 'status-bad');
-      if (ok === true) el.classList.add('status-ok');
-      if (ok === false) el.classList.add('status-bad');
+      el.classList.remove("status-ok", "status-bad");
+      if (ok === true) el.classList.add("status-ok");
+      if (ok === false) el.classList.add("status-bad");
     }
 
     function pretty(obj) {
@@ -397,38 +345,38 @@
 
     // ---------- Schema helpers ----------
     function parseType(typeStr) {
-      if (typeof typeStr !== 'string') return { kind: 'object' };
-      if (typeStr.includes('|')) return { kind: 'enum', values: typeStr.split('|') };
-      if (typeStr === 'bool') return { kind: 'bool' };
-      if (typeStr.includes('uint')) return { kind: 'uint' };
-      if (typeStr.includes('int')) return { kind: 'int' };
-      if (typeStr === 'string') return { kind: 'string' };
-      return { kind: 'string' };
+      if (typeof typeStr !== "string") return { kind: "object" };
+      if (typeStr.includes("|")) return { kind: "enum", values: typeStr.split("|") };
+      if (typeStr === "bool") return { kind: "bool" };
+      if (typeStr.includes("uint")) return { kind: "uint" };
+      if (typeStr.includes("int")) return { kind: "int" };
+      if (typeStr === "string") return { kind: "string" };
+      return { kind: "string" };
     }
 
     function validateValue(type, value) {
-      if (type.kind === 'string') return null;
-      if (type.kind === 'bool') return (typeof value === 'boolean') ? null : 'Must be boolean';
-      if (type.kind === 'enum') return type.values.some(v => String(v) === String(value)) ? null : 'Invalid enum value';
-      if (type.kind === 'int' || type.kind === 'uint') {
-        if (value === '' || value === null || value === undefined) return 'Required number';
-        if (!Number.isInteger(Number(value))) return 'Must be integer';
+      if (type.kind === "string") return null;
+      if (type.kind === "bool") return (typeof value === "boolean") ? null : "Must be boolean";
+      if (type.kind === "enum") return type.values.some(v => String(v) === String(value)) ? null : "Invalid enum value";
+      if (type.kind === "int" || type.kind === "uint") {
+        if (value === "" || value === null || value === undefined) return "Required number";
+        if (!Number.isInteger(Number(value))) return "Must be integer";
         const n = Number(value);
-        if (type.kind === 'uint' && n < 0) return 'Must be unsigned';
-        if (type.kind === 'int' && (n < -2147483648 || n > 2147483647)) return 'Overflow 32-bit signed';
-        if (type.kind === 'uint' && (n < 0 || n > 4294967295)) return 'Overflow 32-bit unsigned';
+        if (type.kind === "uint" && n < 0) return "Must be unsigned";
+        if (type.kind === "int" && (n < -2147483648 || n > 2147483647)) return "Overflow 32-bit signed";
+        if (type.kind === "uint" && (n < 0 || n > 4294967295)) return "Overflow 32-bit unsigned";
         return null;
       }
       return null;
     }
 
     function isSchemaObject(x) {
-      return x && typeof x === 'object' && !Array.isArray(x);
+      return x && typeof x === "object" && !Array.isArray(x);
     }
 
     function ensureDataDefaults(schema, data) {
       if (!isSchemaObject(schema)) return data;
-      const out = (data && typeof data === 'object') ? structuredClone(data) : {};
+      const out = (data && typeof data === "object") ? structuredClone(data) : {};
       for (const key of Object.keys(schema)) {
         const s = schema[key];
         if (Array.isArray(s)) {
@@ -438,10 +386,10 @@
         } else {
           if (!(key in out)) {
             const t = parseType(s);
-            if (t.kind === 'bool') out[key] = false;
-            else if (t.kind === 'int' || t.kind === 'uint') out[key] = 0;
-            else if (t.kind === 'enum') out[key] = t.values[0] ?? '';
-            else out[key] = '';
+            if (t.kind === "bool") out[key] = false;
+            else if (t.kind === "int" || t.kind === "uint") out[key] = 0;
+            else if (t.kind === "enum") out[key] = t.values[0] ?? "";
+            else out[key] = "";
           }
         }
       }
@@ -450,8 +398,8 @@
 
     // ---------- Forms ----------
     function renderForms() {
-      const root = $('formRoot');
-      root.innerHTML = '';
+      const root = $("formRoot");
+      root.innerHTML = "";
       if (!state.schema || !state.data) {
         root.innerHTML = '<div class="badge">No config selected</div>';
         return;
@@ -463,21 +411,21 @@
           state.data = newObj;
           withSource(Source.Forms, () => pushStateToCodeMirror());
         },
-        ''
+        ""
       );
       root.appendChild(tree);
     }
 
     function renderObjectFields(schemaObj, dataObj, onChange, title) {
-      const card = document.createElement('div');
-      card.className = 'card';
+      const card = document.createElement("div");
+      card.className = "card";
       if (title) {
-        const h = document.createElement('div');
-        h.style.fontWeight = '800';
-        h.style.marginBottom = '10px';
-        h.style.fontSize = '14px';
-        h.style.display = 'block';
-        h.style.color = 'var(--muted)';
+        const h = document.createElement("div");
+        h.style.fontWeight = "800";
+        h.style.marginBottom = "10px";
+        h.style.fontSize = "14px";
+        h.style.display = "block";
+        h.style.color = "var(--muted)";
         h.textContent = title;
         card.appendChild(h);
       }
@@ -490,19 +438,19 @@
           const arrSchema = s[0];
           const arr = Array.isArray(value) ? value : [];
 
-          const field = document.createElement('div');
-          field.className = 'field';
+          const field = document.createElement("div");
+          field.className = "field";
 
-          const label = document.createElement('label');
+          const label = document.createElement("label");
           label.textContent = key;
           field.appendChild(label);
 
-          const container = document.createElement('div');
+          const container = document.createElement("div");
 
           arr.forEach((item, idx) => {
-            const box = document.createElement('div');
-            box.className = 'card';
-            box.style.background = 'rgba(15,26,53,.55)';
+            const box = document.createElement("div");
+            box.className = "card";
+            box.style.background = "rgba(15,26,53,.55)";
 
             const updateAt = (idx, v) => {
               const copy = structuredClone(dataObj);
@@ -518,7 +466,7 @@
                   arrSchema,
                   item || {},
                   (v) => updateAt(idx, v),
-                  key + '[' + idx + ']'
+                  key + "[" + idx + "]"
                 )
               );
             } else {
@@ -530,10 +478,11 @@
               setFieldError(node, errorNode, err);
             }
 
-            const btnDel = document.createElement('button');
-            btnDel.className = 'danger';
-            btnDel.textContent = 'Remove';
-            btnDel.addEventListener('click', () => {
+            const btnDel = document.createElement("button");
+            btnDel.className = "danger";
+            btnDel.textContent = "Remove";
+            btnDel.addEventListener("click", (ev) => {
+              ev.preventDefault();
               const copy = structuredClone(dataObj);
               const newArr = Array.isArray(copy[key]) ? copy[key].slice() : arr.slice();
               newArr.splice(idx, 1);
@@ -545,19 +494,20 @@
             container.appendChild(box);
           });
 
-          const btnAdd = document.createElement('button');
-          btnAdd.className = 'secondary';
-          btnAdd.textContent = 'Add';
-          btnAdd.addEventListener('click', () => {
+          const btnAdd = document.createElement("button");
+          btnAdd.className = "secondary";
+          btnAdd.textContent = "Add";
+          btnAdd.addEventListener("click", (ev) => {
+            ev.preventDefault();
             const copy = structuredClone(dataObj);
             const newArr = Array.isArray(copy[key]) ? copy[key].slice() : arr.slice();
             if (isSchemaObject(arrSchema)) newArr.push({});
             else {
               const t = parseType(arrSchema);
-              if (t.kind === 'bool') newArr.push(false);
-              else if (t.kind === 'int' || t.kind === 'uint') newArr.push(0);
-              else if (t.kind === 'enum') newArr.push(t.values[0] ?? '');
-              else newArr.push('');
+              if (t.kind === "bool") newArr.push(false);
+              else if (t.kind === "int" || t.kind === "uint") newArr.push(0);
+              else if (t.kind === "enum") newArr.push(t.values[0] ?? "");
+              else newArr.push("");
             }
             copy[key] = newArr;
             onChange(copy);
@@ -584,10 +534,10 @@
           continue;
         }
 
-        const field = document.createElement('div');
-        field.className = 'field';
+        const field = document.createElement("div");
+        field.className = "field";
 
-        const label = document.createElement('label');
+        const label = document.createElement("label");
         label.textContent = key;
         field.appendChild(label);
 
@@ -611,20 +561,20 @@
 
     function setFieldError(inputNode, errNode, errText) {
       if (errText) {
-        inputNode.classList.add('error');
-        errNode.style.display = 'block';
+        inputNode.classList.add("error");
+        errNode.style.display = "block";
         errNode.textContent = errText;
       } else {
-        inputNode.classList.remove('error');
-        errNode.style.display = 'none';
-        errNode.textContent = '';
+        inputNode.classList.remove("error");
+        errNode.style.display = "none";
+        errNode.textContent = "";
       }
     }
 
     function makeScalarEditor(type, value, onChange) {
-      const err = document.createElement('div');
-      err.className = 'error-text';
-      err.style.display = 'none';
+      const err = document.createElement("div");
+      err.className = "error-text";
+      err.style.display = "none";
 
       let node;
       let current = value;
@@ -636,34 +586,34 @@
         onChange(v);
       }
 
-      if (type.kind === 'enum') {
-        node = document.createElement('select');
+      if (type.kind === "enum") {
+        node = document.createElement("select");
         for (const v of type.values) {
-          const opt = document.createElement('option');
+          const opt = document.createElement("option");
           opt.value = v;
           opt.textContent = v;
           node.appendChild(opt);
         }
-        node.value = (value ?? type.values[0] ?? '');
-        node.addEventListener('change', () => validateAndEmit(node.value));
-      } else if (type.kind === 'bool') {
-        node = document.createElement('input');
-        node.type = 'checkbox';
+        node.value = (value ?? type.values[0] ?? "");
+        node.addEventListener("change", () => validateAndEmit(node.value));
+      } else if (type.kind === "bool") {
+        node = document.createElement("input");
+        node.type = "checkbox";
         node.checked = !!value;
         current = node.checked;
-        node.addEventListener('change', () => validateAndEmit(!!node.checked));
-      } else if (type.kind === 'int' || type.kind === 'uint') {
-        node = document.createElement('input');
-        node.type = 'number';
+        node.addEventListener("change", () => validateAndEmit(!!node.checked));
+      } else if (type.kind === "int" || type.kind === "uint") {
+        node = document.createElement("input");
+        node.type = "number";
         node.value = (value ?? 0);
-        node.addEventListener('input', () => {
-          const v = node.value === '' ? '' : Number(node.value);
+        node.addEventListener("input", () => {
+          const v = node.value === "" ? "" : Number(node.value);
           validateAndEmit(v);
         });
       } else {
-        node = document.createElement('textarea');
-        node.value = (value ?? '');
-        node.addEventListener('input', () => validateAndEmit(node.value));
+        node = document.createElement("textarea");
+        node.value = (value ?? "");
+        node.addEventListener("input", () => validateAndEmit(node.value));
       }
 
       return { node, errorNode: err, getValue: () => current };
@@ -671,30 +621,30 @@
 
     // ---------- JSON editor ----------
     async function loadEditorBundleOnce() {
-      if (window.PCEditor && typeof window.PCEditor.createJsonEditor === 'function') return true;
+      if (window.PCEditor && typeof window.PCEditor.createJsonEditor === "function") return true;
       if (state._editorLoading) return state._editorLoading;
 
       state._editorLoading = (async () => {
         try {
           const auth = await makeAuthHeader();
-          const res = await fetch('/editor.bundle.js', {
-            headers: auth ? { 'Authorization': auth } : {}
+          const res = await fetch("/editor.bundle.js", {
+            headers: auth ? { Authorization: auth } : {}
           });
           if (!res.ok) return false;
 
           const jsText = await res.text();
-          const blob = new Blob([jsText], { type: 'application/javascript' });
+          const blob = new Blob([jsText], { type: "application/javascript" });
           const url = URL.createObjectURL(blob);
 
           await new Promise((resolve, reject) => {
-            const s = document.createElement('script');
+            const s = document.createElement("script");
             s.src = url;
             s.onload = () => { URL.revokeObjectURL(url); resolve(); };
             s.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
             document.head.appendChild(s);
           });
 
-          return !!(window.PCEditor && typeof window.PCEditor.createJsonEditor === 'function');
+          return !!(window.PCEditor && typeof window.PCEditor.createJsonEditor === "function");
         } catch {
           return false;
         }
@@ -707,22 +657,22 @@
       if (state.cm) return true;
 
       const ok = await loadEditorBundleOnce();
-      if (!ok) { setStatus('Cannot load /editor.bundle.js', false); return false; }
-      if (!window.PCEditor || typeof window.PCEditor.createJsonEditor !== 'function') {
-        setStatus('editor.bundle.js loaded, but PCEditor.createJsonEditor not found', false);
+      if (!ok) { setStatus("Cannot load /editor.bundle.js", false); return false; }
+      if (!window.PCEditor || typeof window.PCEditor.createJsonEditor !== "function") {
+        setStatus("editor.bundle.js loaded, but PCEditor.createJsonEditor not found", false);
         return false;
       }
 
-      $('cm').innerHTML = '';
+      $("cm").innerHTML = "";
       const start = pretty(state.data || {});
 
       const inst = window.PCEditor.createJsonEditor({
-        parent: $('cm'),
+        parent: $("cm"),
         doc: start,
         onChange: (text) => {
           if (updatingSource === Source.Forms) return;
           const parsed = safeParseJson(text);
-          $('jsonErr').style.display = parsed.ok ? 'none' : 'inline-block';
+          $("jsonErr").style.display = parsed.ok ? "none" : "inline-block";
           if (parsed.ok) {
             withSource(Source.CodeMirror, () => {
               state.data = ensureDataDefaults(state.schema, parsed.value);
@@ -746,17 +696,15 @@
       }
     }
 
-    function syncJsonEditorFromState() { pushStateToCodeMirror(); }
-
     // ---------- Tabs / loading ----------
     function renderTabs() {
-      const tabs = $('tabs');
-      tabs.innerHTML = '';
+      const tabs = $("tabs");
+      tabs.innerHTML = "";
       state.configs.forEach((name) => {
-        const el = document.createElement('div');
-        el.className = 'tab' + (state.selected === name ? ' active' : '');
+        const el = document.createElement("div");
+        el.className = "tab" + (state.selected === name ? " active" : "");
         el.textContent = name;
-        el.addEventListener('click', () => loadConfig(name));
+        el.addEventListener("click", () => loadConfig(name));
         tabs.appendChild(el);
       });
     }
@@ -767,12 +715,12 @@
       if (!name) return;
       const myId = ++lastLoadId;
 
-      setStatus('Loading...', null);
+      setStatus("Loading...", null);
 
       try {
         const [schema, data] = await Promise.all([
-          api(`/config/${name}/sheme`),
-          api(`/config/${name}/current`)
+          api(`/config/${name}/sheme`, {}, { loginUrl: "/login.html" }),
+          api(`/config/${name}/current`, {}, { loginUrl: "/login.html" })
         ]);
 
         if (myId !== lastLoadId) return;
@@ -784,45 +732,45 @@
         renderTabs();
         renderForms();
         await ensureCodeMirror();
-        syncJsonEditorFromState();
-        setStatus('Loaded: ' + name, true);
+        pushStateToCodeMirror();
+        setStatus("Loaded: " + name, true);
       } catch (e) {
         if (myId !== lastLoadId) return;
-        setStatus('Load failed: ' + (e && e.message ? e.message : e), false);
+        setStatus("Load failed: " + (e && e.message ? e.message : e), false);
       }
     }
 
     // ---------- Actions ----------
     async function save() {
       if (!state.selected) return;
-      setStatus('Saving...', null);
+      setStatus("Saving...", null);
       try {
         await api(`/config/${state.selected}/current`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          method: "POST",
+          headers: { "Content-Type": "application/json; charset=utf-8" },
           body: pretty(state.data)
-        });
-        setStatus('Saved', true);
+        }, { loginUrl: "/login.html" });
+        setStatus("Saved", true);
       } catch (e) {
-        setStatus('Save failed: ' + (e && e.message ? e.message : e), false);
+        setStatus("Save failed: " + (e && e.message ? e.message : e), false);
       }
     }
 
     async function reloadPlugin() {
-      setStatus('Reloading...', null);
+      setStatus("Reloading...", null);
       try {
-        const text = await api('/reload', { method: 'POST' });
-        setStatus('Reload triggered: ' + String(text).slice(0, 64), true);
+        const text = await api("/reload", { method: "POST" }, { loginUrl: "/login.html" });
+        setStatus("Reload triggered: " + String(text).slice(0, 64), true);
       } catch (e) {
-        setStatus('Reload failed: ' + (e && e.message ? e.message : e), false);
+        setStatus("Reload failed: " + (e && e.message ? e.message : e), false);
       }
     }
 
     function copyJson() {
       const t = pretty(state.data || {});
       navigator.clipboard.writeText(t).then(
-        () => setStatus('Copied', true),
-        () => setStatus('Copy failed', false)
+        () => setStatus("Copied", true),
+        () => setStatus("Copy failed", false)
       );
     }
 
@@ -830,35 +778,34 @@
       if (!state.cmApi) return;
       const parsed = safeParseJson(state.cmApi.getValue());
       if (!parsed.ok) {
-        $('jsonErr').style.display = 'inline-block';
-        setStatus('Invalid JSON: ' + parsed.error, false);
+        $("jsonErr").style.display = "inline-block";
+        setStatus("Invalid JSON: " + parsed.error, false);
         return;
       }
       state.data = ensureDataDefaults(state.schema, parsed.value);
       renderForms();
-      syncJsonEditorFromState();
-      setStatus('Formatted', true);
+      pushStateToCodeMirror();
+      setStatus("Formatted", true);
     }
 
     // ---------- Init ----------
-    $('btnSave').addEventListener('click', save);
-    $('btnReload').addEventListener('click', reloadPlugin);
-    $('btnCopy').addEventListener('click', copyJson);
-    $('btnFormat').addEventListener('click', formatJsonEditor);
+    $("btnSave").addEventListener("click", save);
+    $("btnReload").addEventListener("click", reloadPlugin);
+    $("btnCopy").addEventListener("click", copyJson);
+    $("btnFormat").addEventListener("click", formatJsonEditor);
 
     (async function init() {
-      setStatus('Loading configs...', null);
+      setStatus("Loading configs...", null);
       try {
-        const configs = await api('/configs');
+        const configs = await api("/configs", {}, { loginUrl: "/login.html" });
         state.configs = Array.isArray(configs) ? configs : [];
         renderTabs();
-        setStatus('Select a config', true);
+        setStatus("Select a config", true);
         if (state.configs.length) await loadConfig(state.configs[0]);
       } catch (e) {
-        setStatus('Init failed (not authorized?): ' + (e && e.message ? e.message : e), false);
+        setStatus("Init failed (not authorized?): " + (e && e.message ? e.message : e), false);
       }
     })();
   </script>
 </body>
-
 </html>

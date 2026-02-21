@@ -21,6 +21,16 @@ string(REPLACE "\\" "\\\\" EDITOR_BUNDLE "${EDITOR_BUNDLE}")
 string(REPLACE "\"" "\\\"" EDITOR_BUNDLE "${EDITOR_BUNDLE}")
 string(REPLACE "\n" "\\n\"\n\"" EDITOR_BUNDLE "${EDITOR_BUNDLE}")
 
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/web/logs.html LOGS_HTML)
+string(REPLACE "\\" "\\\\" LOGS_HTML "${LOGS_HTML}")
+string(REPLACE "\"" "\\\"" LOGS_HTML "${LOGS_HTML}")
+string(REPLACE "\n" "\\n\"\n\"" LOGS_HTML "${LOGS_HTML}")
+
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/web/auth.js AUTH_JS)
+string(REPLACE "\\" "\\\\" AUTH_JS "${AUTH_JS}")
+string(REPLACE "\"" "\\\"" AUTH_JS "${AUTH_JS}")
+string(REPLACE "\n" "\\n\"\n\"" AUTH_JS "${AUTH_JS}")
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/web/embedded_page.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/embedded_page.cpp @ONLY)
 target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/embedded_page.cpp)
 

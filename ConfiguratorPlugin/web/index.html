@@ -135,9 +135,10 @@
     }
 
     textarea {
-      min-height: 70px;
+      min-height: 35px;
       resize: vertical;
       font-family: var(--mono);
+      height: 35px;
     }
 
     input[type="checkbox"] {
@@ -315,6 +316,16 @@
       cmApi: null,
     };
 
+    // --- Sync source guard (prevents feedback loop) ---
+    const Source = Object.freeze({ None: 0, Forms: 1, CodeMirror: 2 });
+    let updatingSource = Source.None;
+    function withSource(src, fn) {
+      const prev = updatingSource;
+      updatingSource = src;
+      try { return fn(); }
+      finally { updatingSource = prev; }
+    }
+
     // ---------- AUTH ----------
     async function sha256Hex(message) {
       const data = new TextEncoder().encode(message);
@@ -450,7 +461,7 @@
         state.data,
         (newObj) => {
           state.data = newObj;
-          syncJsonEditorFromState();
+          withSource(Source.Forms, () => pushStateToCodeMirror());
         },
         ''
       );
@@ -706,11 +717,14 @@
         parent: $('cm'),
         doc: start,
         onChange: (text) => {
+          if (updatingSource === Source.Forms) return;
           const parsed = safeParseJson(text);
           $('jsonErr').style.display = parsed.ok ? 'none' : 'inline-block';
           if (parsed.ok) {
-            state.data = ensureDataDefaults(state.schema, parsed.value);
-            renderForms();
+            withSource(Source.CodeMirror, () => {
+              state.data = ensureDataDefaults(state.schema, parsed.value);
+              renderForms();
+            });
           }
         }
       });
@@ -720,7 +734,7 @@
       return true;
     }
 
-    function syncJsonEditorFromState() {
+    function pushStateToCodeMirror() {
       if (!state.cmApi) return;
       const text = pretty(state.data || {});
       if (state.cmApi.getValue && state.cmApi.setValue) {
@@ -728,6 +742,8 @@
         if (have !== text) state.cmApi.setValue(text);
       }
     }
+
+    function syncJsonEditorFromState() { pushStateToCodeMirror(); }
 
     // ---------- Tabs / loading ----------
     function renderTabs() {

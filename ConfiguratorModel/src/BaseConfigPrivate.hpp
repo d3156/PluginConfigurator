@@ -62,13 +62,13 @@ namespace d3156
                 if (!po) continue;
                 T item{};
                 item.load(*po);
-                items.push_back(std::move(item));
+                items.emplace_back(std::move(item));
             }
             return;
         } else
             for (auto const &j : *pa) {
                 T v{};
-                if (from_json_scalar<T>(j, v)) items.push_back(std::move(v));
+                if (from_json_scalar<T>(j, v)) items.emplace_back(std::move(v));
             }
     }
 

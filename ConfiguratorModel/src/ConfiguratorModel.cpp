@@ -2,6 +2,7 @@
 #include <PluginCore/Logger/Log>
 #include <boost/property_tree/json_parser.hpp>
 #include <filesystem>
+#include <src/Logger/Log.hpp>
 #include <string>
 #include <fstream>
 
@@ -78,6 +79,7 @@ std::string ConfiguratorModel::configsString()
         paths += "\"" + configsPaths_[i] + "\"";
         if (i != configsPaths_.size() - 1) paths += ",";
     }
+    G_LOG(100, "/configs Answer:" << paths);
     return "[" + paths + "]";
 }
 

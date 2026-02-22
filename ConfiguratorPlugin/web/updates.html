@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>PluginCore Updates Manager</title>
+    <style>
+        :root {
+            --bg0: #0b0f17;
+            --bg1: #0f172a;
+            --txt: #e7ecff;
+            --mut: #aab3d6;
+            --acc: #8b5cf6;
+            --r: 14px;
+            --line: #243154;
+            --bad: #ef4444;
+            --ok: #22c55e;
+        }
+
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            font-family: system-ui, sans-serif;
+            color: var(--txt);
+            background: linear-gradient(180deg, var(--bg0), var(--bg1));
+        }
+
+        .wrap {
+            max-width: 1100px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+
+        .top {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        h2 {
+            margin: 0
+        }
+
+        .muted {
+            color: var(--mut);
+            font-size: 13px
+        }
+
+        .card {
+            background: rgba(16, 26, 51, .75);
+            border: 1px solid rgba(36, 49, 84, .8);
+            border-radius: var(--r);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse
+        }
+
+        th,
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(36, 49, 84, .6);
+            vertical-align: top
+        }
+
+        th {
+            text-align: left;
+            font-size: 12px;
+            letter-spacing: .02em;
+            text-transform: uppercase;
+            color: var(--mut)
+        }
+
+        tr:last-child td {
+            border-bottom: 0
+        }
+
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+            font-size: 12px
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border: 1px solid rgba(36, 49, 84, .9);
+            border-radius: 999px;
+            background: rgba(16, 26, 51, .4)
+        }
+
+        .btn {
+            padding: 7px 10px;
+            border-radius: 999px;
+            border: 0;
+            background: var(--acc);
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer
+        }
+
+        .btn:disabled {
+            opacity: .5;
+            cursor: not-allowed
+        }
+
+        .btn2 {
+            background: rgba(36, 49, 84, .9);
+            font-weight: 600
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center
+        }
+
+        .msg {
+            margin: 10px 0 0;
+            font-size: 13px;
+            white-space: pre-wrap
+        }
+
+        .msg.ok {
+            color: var(--ok)
+        }
+
+        .msg.bad {
+            color: var(--bad)
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="top">
+            <div>
+                <h2>Plugin Updates</h2>
+            </div>
+            <div class="row">
+                <button class="btn btn2" id="btnRefresh" type="button">Refresh</button>
+                <button class="btn btn2" id="btnLogout" type="button">Clear saved</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:220px">Name</th>
+                        <th style="width:160px">Current</th>
+                        <th style="width:160px">New</th>
+                        <th>Description</th>
+                        <th style="width:140px">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody">
+                    <tr>
+                        <td colspan="5" class="muted">Loading…</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="msg" class="msg"></div>
+    </div>
+
+    <script type="module">
+        import {
+            getSavedCreds,
+            clearSavedCreds,
+            makeAuthHeaderFrom,
+            isHexEven,
+        } from "/auth.js";
+
+        const $tbody = document.getElementById("tbody");
+        const $msg = document.getElementById("msg");
+        const $btnRefresh = document.getElementById("btnRefresh");
+        const $btnLogout = document.getElementById("btnLogout");
+
+        function setMsg(text, ok) {
+            $msg.textContent = text || "";
+            $msg.className = "msg " + (ok ? "ok" : "bad");
+        }
+
+        async function getAuthHeaderOrThrow() {
+            const saved = getSavedCreds();
+            const username = (saved?.username || "").trim();
+            const secretHex = (saved?.secretHex || "").trim();
+            if (!username || !isHexEven(secretHex)) {
+                throw new Error("No saved creds. Open /login.html and login first.");
+            }
+            return await makeAuthHeaderFrom(username, secretHex);
+        }
+
+        function looksLikeLoginHtml(text) {
+            return text.includes("Login - PluginCore");
+        }
+
+        function esc(s) {
+            return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+        }
+
+        function renderRows(items) {
+            if (!Array.isArray(items) || items.length === 0) {
+                $tbody.innerHTML = `<tr><td colspan="5" class="muted">No plugins</td></tr>`;
+                return;
+            }
+
+            $tbody.innerHTML = items.map((it) => {
+                const name = it?.name ?? "";
+                const cur = it?.current_tag ?? "";
+                const newTag = it?.new_tag ?? "";
+                const desc = it?.description ?? "";
+
+                const newCell = newTag ? `<span class="tag">${esc(newTag)}</span>` : `<span class="muted">Up to date</span>`;
+                const descCell = desc ? `<div>${esc(desc)}</div>` : `<span class="muted">—</span>`;
+
+                const canUpdate = Boolean(newTag);
+
+                return `
+          <tr>
+            <td><code>${esc(name)}</code></td>
+            <td><span class="tag">${esc(cur)}</span></td>
+            <td>${newCell}</td>
+            <td>${descCell}</td>
+            <td>
+              <button class="btn" data-name="${esc(name)}" ${canUpdate ? "" : "disabled"}>Update</button>
+            </td>
+          </tr>`;
+            }).join("");
+
+            $tbody.querySelectorAll("button[data-name]").forEach(btn => {
+                btn.addEventListener("click", () => doUpdate(btn.getAttribute("data-name"), btn));
+            });
+        }
+
+        async function fetchUpdates() {
+            setMsg("", true);
+            $btnRefresh.disabled = true;
+
+            try {
+                const auth = await getAuthHeaderOrThrow();
+
+                const res = await fetch("/updates", {
+                    method: "GET",
+                    headers: { "Authorization": auth, "Accept": "application/json" },
+                });
+
+                const text = await res.text();
+
+                if (looksLikeLoginHtml(text)) {
+                    window.location.href = "/login.html";
+                    return;
+                }
+
+                let data;
+                try { data = JSON.parse(text); }
+                catch { throw new Error("Invalid JSON from /updates:\n" + text.slice(0, 300)); }
+
+                renderRows(data);
+                setMsg("OK", true);
+            } catch (e) {
+                setMsg(String(e?.message || e), false);
+                $tbody.innerHTML = `<tr><td colspan="5" class="muted">Failed to load</td></tr>`;
+            } finally {
+                $btnRefresh.disabled = false;
+            }
+        }
+        async function doUpdate(name, btn) {
+            setMsg("", true);
+            if (!name) return;
+
+            btn.disabled = true;
+            try {
+                const auth = await getAuthHeaderOrThrow();
+                const res = await fetch("/update", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": auth,
+                        "Content-Type": "text/plain; charset=utf-8",
+                    },
+                    body: name,
+                });
+                const text = await res.text();
+                if (looksLikeLoginHtml(text)) {
+                    window.location.href = "/login.html";
+                    return;
+                }
+                if (text.includes("OK")) {
+                    setMsg("Update started/finished for: " + name, true);
+                    await fetchUpdates();
+                } else {
+                    throw new Error("Update failed: " + text);
+                }
+            } catch (e) {
+                setMsg(String(e?.message || e), false);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        $btnRefresh.addEventListener("click", fetchUpdates);
+        $btnLogout.addEventListener("click", () => {
+            clearSavedCreds();
+            setMsg("Saved credentials cleared. Open /login.html to login again.", true);
+        });
+        fetchUpdates();
+    </script>
+</body>
+
+</html>

@@ -22,5 +22,9 @@ __attribute__((visibility("default")))
 const char* embedded_logs_page =
 "@LOGS_HTML@";
 
+__attribute__((visibility("default")))
+const char* embedded_updates_page =
+"@UPDATES_HTML@";
+
 }
 

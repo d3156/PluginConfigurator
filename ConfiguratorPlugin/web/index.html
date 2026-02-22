@@ -223,6 +223,7 @@
       word-break: break-word;
       overflow-wrap: anywhere;
     }
+
     .cm-editor .cm-line { white-space: inherit; }
 
     .cm-editor .cm-cursor,
@@ -248,7 +249,6 @@
     .cm-editor .cm-lineNumbers .cm-gutterElement { padding: 0 6px; }
     .cm-editor .cm-activeLineGutter { background-color: #1f2937; }
 
-    /* JSON highlighting classes */
     .cm-editor .ͼpropertyName { color: #9cdcfe; }
     .cm-editor .ͼstring, .cm-editor .ͼe { color: #ce9178; }
     .cm-editor .ͼnumber, .cm-editor .ͼd { color: #b5cea8; }
@@ -262,11 +262,9 @@
   <div class="wrap">
     <div class="header">
       <div class="title">PluginCore Config Manager</div>
-
       <div class="topbar">
         <span id="status" class="badge">Idle</span>
       </div>
-
       <div class="tabs-container">
         <div id="tabs" class="tabs"></div>
       </div>
@@ -276,7 +274,6 @@
       <div>
         <div class="card" id="leftCard">
           <div id="formRoot"></div>
-
           <div class="row" style="margin-top:14px;">
             <button id="btnSave" class="primary">Save</button>
             <button id="btnReload" class="danger">Reload plugin</button>
@@ -315,7 +312,6 @@
       _editorLoading: null,
     };
 
-    // --- Sync source guard (prevents feedback loop) ---
     const Source = Object.freeze({ None: 0, Forms: 1, CodeMirror: 2 });
     let updatingSource = Source.None;
     function withSource(src, fn) {
@@ -325,7 +321,6 @@
       finally { updatingSource = prev; }
     }
 
-    // ---------- UI helpers ----------
     function setStatus(text, ok = null) {
       const el = $("status");
       el.textContent = text;
@@ -343,7 +338,6 @@
       catch (e) { return { ok: false, error: String(e && e.message ? e.message : e) }; }
     }
 
-    // ---------- Schema helpers ----------
     function parseType(typeStr) {
       if (typeof typeStr !== "string") return { kind: "object" };
       if (typeStr.includes("|")) return { kind: "enum", values: typeStr.split("|") };
@@ -396,7 +390,29 @@
       return out;
     }
 
-    // ---------- Forms ----------
+    function getByPath(root, path) {
+      let cur = root;
+      for (const k of path) {
+        if (cur == null) return undefined;
+        cur = cur[k];
+      }
+      return cur;
+    }
+
+    function setByPath(root, path, value) {
+      const copy = structuredClone(root);
+      let cur = copy;
+      for (let i = 0; i < path.length - 1; i++) {
+        const k = path[i];
+        if (!(k in cur) || cur[k] == null) {
+          cur[k] = typeof path[i + 1] === "number" ? [] : {};
+        }
+        cur = cur[k];
+      }
+      cur[path[path.length - 1]] = value;
+      return copy;
+    }
+
     function renderForms() {
       const root = $("formRoot");
       root.innerHTML = "";
@@ -407,16 +423,22 @@
       const tree = renderObjectFields(
         state.schema,
         state.data,
-        (newObj) => {
-          state.data = newObj;
-          withSource(Source.Forms, () => pushStateToCodeMirror());
+        [],
+        (newRoot, opts = {}) => {
+          state.data = newRoot;
+          withSource(Source.Forms, () => {
+            pushStateToCodeMirror();
+          });
+          if (opts.rerender === true) {
+            renderForms();
+          }
         },
         ""
       );
       root.appendChild(tree);
     }
 
-    function renderObjectFields(schemaObj, dataObj, onChange, title) {
+    function renderObjectFields(schemaObj, dataObj, path, onChangeRoot, title) {
       const card = document.createElement("div");
       card.className = "card";
       if (title) {
@@ -433,11 +455,10 @@
       for (const key of Object.keys(schemaObj)) {
         const s = schemaObj[key];
         const value = dataObj ? dataObj[key] : undefined;
+        const myPath = path.concat(key);
 
         if (Array.isArray(s)) {
           const arrSchema = s[0];
-          const arr = Array.isArray(value) ? value : [];
-
           const field = document.createElement("div");
           field.className = "field";
 
@@ -447,17 +468,19 @@
 
           const container = document.createElement("div");
 
+          const arr = Array.isArray(value) ? value : [];
+
           arr.forEach((item, idx) => {
             const box = document.createElement("div");
             box.className = "card";
             box.style.background = "rgba(15,26,53,.55)";
 
-            const updateAt = (idx, v) => {
-              const copy = structuredClone(dataObj);
-              const newArr = Array.isArray(copy[key]) ? copy[key].slice() : arr.slice();
-              newArr[idx] = v;
-              copy[key] = newArr;
-              onChange(copy);
+            const updateAt = (index, v) => {
+              const liveArr = getByPath(state.data, myPath);
+              const base = Array.isArray(liveArr) ? liveArr.slice() : [];
+              base[index] = v;
+              const rootNext = setByPath(state.data, myPath, base);
+              onChangeRoot(rootNext, { rerender: false });
             };
 
             if (isSchemaObject(arrSchema)) {
@@ -465,7 +488,8 @@
                 renderObjectFields(
                   arrSchema,
                   item || {},
-                  (v) => updateAt(idx, v),
+                  myPath.concat(idx),
+                  onChangeRoot,
                   key + "[" + idx + "]"
                 )
               );
@@ -483,11 +507,11 @@
             btnDel.textContent = "Remove";
             btnDel.addEventListener("click", (ev) => {
               ev.preventDefault();
-              const copy = structuredClone(dataObj);
-              const newArr = Array.isArray(copy[key]) ? copy[key].slice() : arr.slice();
-              newArr.splice(idx, 1);
-              copy[key] = newArr;
-              onChange(copy);
+              const liveArr = getByPath(state.data, myPath);
+              const base = Array.isArray(liveArr) ? liveArr.slice() : [];
+              base.splice(idx, 1);
+              const rootNext = setByPath(state.data, myPath, base);
+              onChangeRoot(rootNext, { rerender: true });
             });
             box.appendChild(btnDel);
 
@@ -499,18 +523,19 @@
           btnAdd.textContent = "Add";
           btnAdd.addEventListener("click", (ev) => {
             ev.preventDefault();
-            const copy = structuredClone(dataObj);
-            const newArr = Array.isArray(copy[key]) ? copy[key].slice() : arr.slice();
-            if (isSchemaObject(arrSchema)) newArr.push({});
-            else {
+            const liveArr = getByPath(state.data, myPath);
+            const base = Array.isArray(liveArr) ? liveArr.slice() : [];
+            if (isSchemaObject(arrSchema)) {
+              base.push(ensureDataDefaults(arrSchema, {}));
+            } else {
               const t = parseType(arrSchema);
-              if (t.kind === "bool") newArr.push(false);
-              else if (t.kind === "int" || t.kind === "uint") newArr.push(0);
-              else if (t.kind === "enum") newArr.push(t.values[0] ?? "");
-              else newArr.push("");
+              if (t.kind === "bool") base.push(false);
+              else if (t.kind === "int" || t.kind === "uint") base.push(0);
+              else if (t.kind === "enum") base.push(t.values[0] ?? "");
+              else base.push("");
             }
-            copy[key] = newArr;
-            onChange(copy);
+            const rootNext = setByPath(state.data, myPath, base);
+            onChangeRoot(rootNext, { rerender: true });
           });
 
           field.appendChild(container);
@@ -523,11 +548,8 @@
           const nested = renderObjectFields(
             s,
             value || {},
-            (v) => {
-              const copy = structuredClone(dataObj);
-              copy[key] = v;
-              onChange(copy);
-            },
+            myPath,
+            onChangeRoot,
             key
           );
           card.appendChild(nested);
@@ -543,9 +565,8 @@
 
         const t = parseType(s);
         const { node, errorNode, getValue } = makeScalarEditor(t, value, (v) => {
-          const copy = structuredClone(dataObj);
-          copy[key] = v;
-          onChange(copy);
+          const rootNext = setByPath(state.data, myPath, v);
+          onChangeRoot(rootNext, { rerender: false });
         });
 
         const err = validateValue(t, getValue());
@@ -619,7 +640,6 @@
       return { node, errorNode: err, getValue: () => current };
     }
 
-    // ---------- JSON editor ----------
     async function loadEditorBundleOnce() {
       if (window.PCEditor && typeof window.PCEditor.createJsonEditor === "function") return true;
       if (state._editorLoading) return state._editorLoading;
@@ -696,7 +716,6 @@
       }
     }
 
-    // ---------- Tabs / loading ----------
     function renderTabs() {
       const tabs = $("tabs");
       tabs.innerHTML = "";
@@ -740,7 +759,6 @@
       }
     }
 
-    // ---------- Actions ----------
     async function save() {
       if (!state.selected) return;
       setStatus("Saving...", null);
@@ -788,7 +806,6 @@
       setStatus("Formatted", true);
     }
 
-    // ---------- Init ----------
     $("btnSave").addEventListener("click", save);
     $("btnReload").addEventListener("click", reloadPlugin);
     $("btnCopy").addEventListener("click", copyJson);

@@ -1,7 +1,8 @@
 #include "Configurator.hpp"
 #include <PluginCore/Logger/Log>
+#include <boost/json/serialize.hpp>
 #include <filesystem>
-#include <linux/prctl.h>
+#include <memory>
 #include <sys/prctl.h>
 #include <MetricsModel/MetricsModel>
 
@@ -10,6 +11,7 @@ extern const char *embedded_html_page;
 extern const char *embedded_login_page;
 extern const char *embedded_logs_page;
 extern const char *embedded_auth_page;
+extern const char *embedded_updates_page;
 
 void Configurator::registerArgs(d3156::Args::Builder &bldr)
 {
@@ -18,8 +20,11 @@ void Configurator::registerArgs(d3156::Args::Builder &bldr)
 
 void Configurator::registerModels(d3156::PluginCore::ModelsStorage &models)
 {
-    model = models.registerModel<ConfiguratorModel>();
+    model   = models.registerModel<ConfiguratorModel>();
+    updater = std::make_unique<ConfiguratorExtended::Updater>(io);
     model->registerConfig("MetricsModel", models.registerModel<MetricsModel>()->config);
+    model->registerConfig("ConfiguratorUpdater", updater->config);
+    updater->save();
 }
 
 void Configurator::postInit()
@@ -36,6 +41,7 @@ void Configurator::runIO()
 {
     prctl(PR_SET_NAME, "ConfiguratorPlugin", 0, 0, 0);
     server = std::make_unique<d3156::EasyWebServer>(io, port);
+    updater->init();
     G_LOG(0, "Configurator server started at http://0.0.0.0:" << port << "/index.html");
     server->addPath("/auth.js", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
         server->setContentType("application/javascript; charset=utf-8");
@@ -48,6 +54,30 @@ void Configurator::runIO()
         raise(SIGINT);
         return {true, "OK"};
     });
+
+    if (updater->config.enable_web.value) {
+        server->addPath("/updates",
+                        [this](const d3156::string_req &req, const d3156::address &a) -> d3156::AnswerAsync {
+                            server->setContentType("text/html; charset=utf-8");
+                            if (!auth.check(req)) co_return d3156::Answer{true, std::string(embedded_login_page)};
+                            server->setContentType("application/json; charset=utf-8");
+                            co_return d3156::Answer{true, boost::json::serialize(co_await updater->updateInfo())};
+                        });
+
+        server->addPath("/update", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::AnswerAsync {
+            server->setContentType("text/html; charset=utf-8");
+            if (!auth.check(req)) co_return d3156::Answer{true, std::string(embedded_login_page)};
+            server->setContentType("application/json; charset=utf-8");
+            co_return d3156::Answer{true, (co_await updater->updateTargeted(req.body())) ? "OK" : "FAIL"};
+        });
+
+        server->addPath(
+            "/updates.html", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
+                server->setContentType("text/html; charset=utf-8");
+                return {true, auth.check(req) ? std::string(embedded_updates_page) : std::string(embedded_login_page)};
+            });
+    }
+
     for (auto &conf : model->configsPaths()) {
         server->addPath("/config/" + conf + "/current",
                         [this, conf](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
@@ -82,9 +112,9 @@ void Configurator::runIO()
     server->addPath("/log", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
         server->setContentType("text/html; charset=utf-8");
         if (!auth.check(req)) return {true, std::string(embedded_login_page)};
-        if (!std::filesystem::exists("./logs/"+req.body())) return {false, "no file"};
+        if (!std::filesystem::exists("./logs/" + req.body())) return {false, "no file"};
         server->setContentType("text/plain; charset=utf-8");
-        return {true, ConfiguratorModel::readFileToString("./logs/"+req.body())};
+        return {true, ConfiguratorModel::readFileToString("./logs/" + req.body())};
     });
     server->addPath("/configs", [this](const d3156::string_req &req, const d3156::address &a) -> d3156::Answer {
         server->setContentType("text/html; charset=utf-8");

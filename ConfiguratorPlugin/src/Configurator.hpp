@@ -5,6 +5,7 @@
 #include <boost/thread.hpp>
 #include <ConfiguratorModel>
 #include <EasyHttpLib/EasyWebServer>
+#include "Updater.hpp"
 
 class Configurator final : public d3156::PluginCore::IPlugin
 {
@@ -15,8 +16,11 @@ class Configurator final : public d3156::PluginCore::IPlugin
     std::atomic<bool> stopToken = false;
     uint16_t port               = 5569;
     std::unique_ptr<d3156::EasyWebServer> server;
+    std::unique_ptr<ConfiguratorExtended::Updater> updater;
+
     ConfiguratorModel *model;
     d3156::Auth auth;
+
 public:
     void runIO();
     void registerArgs(d3156::Args::Builder &bldr) override;

@@ -26,6 +26,11 @@ string(REPLACE "\\" "\\\\" LOGS_HTML "${LOGS_HTML}")
 string(REPLACE "\"" "\\\"" LOGS_HTML "${LOGS_HTML}")
 string(REPLACE "\n" "\\n\"\n\"" LOGS_HTML "${LOGS_HTML}")
 
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/web/updates.html UPDATES_HTML)
+string(REPLACE "\\" "\\\\" UPDATES_HTML "${UPDATES_HTML}")
+string(REPLACE "\"" "\\\"" UPDATES_HTML "${UPDATES_HTML}")
+string(REPLACE "\n" "\\n\"\n\"" UPDATES_HTML "${UPDATES_HTML}")
+
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/web/auth.js AUTH_JS)
 string(REPLACE "\\" "\\\\" AUTH_JS "${AUTH_JS}")
 string(REPLACE "\"" "\\\"" AUTH_JS "${AUTH_JS}")
@@ -37,5 +42,5 @@ target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/embedded_page
 find_package(OpenSSL REQUIRED COMPONENTS SSL Crypto)
 target_link_libraries(ConfiguratorPlugin PUBLIC OpenSSL::SSL OpenSSL::Crypto)
 
-find_package(Boost 1.8 REQUIRED COMPONENTS json thread system)
-target_link_libraries(ConfiguratorPlugin PRIVATE Boost::json Boost::system Boost::thread)
+find_package(Boost 1.8 REQUIRED COMPONENTS json thread system url)
+target_link_libraries(ConfiguratorPlugin PRIVATE Boost::json Boost::system Boost::thread Boost::url)

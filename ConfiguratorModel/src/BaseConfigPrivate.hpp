@@ -1,5 +1,6 @@
 #pragma once
 #include "BaseConfig.hpp"
+#include <memory>
 namespace d3156
 {
     template <typename T> inline ConfigField<T>::operator T &() { return value; }
@@ -60,15 +61,15 @@ namespace d3156
             for (auto const &j : *pa) {
                 auto *po = j.if_object();
                 if (!po) continue;
-                T item{};
-                item.load(*po);
+                std::unique_ptr<T> item = std::make_unique<T>();
+                item->load(*po);
                 items.emplace_back(std::move(item));
             }
             return;
         } else
             for (auto const &j : *pa) {
-                T v{};
-                if (from_json_scalar<T>(j, v)) items.emplace_back(std::move(v));
+                std::unique_ptr<T> v = std::make_unique<T>();
+                if (from_json_scalar<T>(j, *v)) items.emplace_back(std::move(v));
             }
     }
 
@@ -79,11 +80,11 @@ namespace d3156
         if constexpr (JsonObjectElement<T>) {
             for (auto const &it : items) {
                 js::object elem;
-                it.save(elem);
+                it->save(elem);
                 arr.emplace_back(std::move(elem));
             }
         } else {
-            for (auto const &v : items) arr.emplace_back(to_json_scalar<T>(v));
+            for (auto const &v : items) arr.emplace_back(to_json_scalar<T>(*v));
         }
         obj[name] = std::move(arr);
     }

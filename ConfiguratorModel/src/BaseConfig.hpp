@@ -3,6 +3,7 @@
 #include <boost/json.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 #include <type_traits>
@@ -20,6 +21,11 @@ namespace d3156
 
     struct Config : public IConfig {
         explicit Config(std::string n, Config *parent = nullptr);
+
+        Config(const Config &)            = delete;
+        Config(Config &&)                 = delete;
+        Config &operator=(const Config &) = delete;
+        Config &operator=(Config &&)      = delete;
 
         void load(const js::object &root) override;
         void save(js::object &root) const override;
@@ -109,7 +115,7 @@ namespace d3156
     }
 
     template <typename T> struct ConfigArray : public IConfig {
-        std::vector<T> items;
+        std::vector<std::unique_ptr<T>> items;
         std::string name;
 
         ConfigArray(std::string name_, Config *parent = nullptr);

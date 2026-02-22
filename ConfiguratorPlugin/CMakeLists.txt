@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(ConfiguratorPlugin VERSION 1.0.0 LANGUAGES CXX)
+project(ConfiguratorPlugin VERSION 1.1.1 LANGUAGES CXX)
 include("${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/workspace.cmake")
 create_target(plugin)
 dependency("../.." ConfiguratorModel "https://gitlab.bubki.zip/d3156/PluginConfigurator.git")
